@@ -207,6 +207,14 @@ class Profiles
                         WHERE user_id = ?
                     ")->execute([$displayName, $bio, $location, $website, $cover, $privacy, date('Y-m-d H:i:s'), $me]);
 
+                    // Mirror the profile privacy into the core column so the
+                    // core can enforce it when this plugin is disabled.
+                    try {
+                        $pdo->prepare("UPDATE users SET profile_visibility = ? WHERE id = ?")
+                            ->execute([$privacy, $me]);
+                    } catch (\Throwable $e) {
+                    }
+
                     Http::flash('settings', \pt('socialbored', 'settings_saved'));
                     return Http::redirect('u/' . rawurlencode((string)($_SESSION['username'] ?? '')));
                 }
@@ -230,10 +238,23 @@ class Profiles
             }
         }
 
+        // Adopt the core profile visibility when a social profile is created so
+        // a privacy setting made outside this plugin is not silently reset.
+        $privacy = 'public';
+        try {
+            $privacyStmt = $pdo->prepare("SELECT profile_visibility FROM users WHERE id = ?");
+            $privacyStmt->execute([$userId]);
+            $value = (string)($privacyStmt->fetchColumn() ?: 'public');
+            if (in_array($value, ['public', 'followers', 'private'], true)) {
+                $privacy = $value;
+            }
+        } catch (\Throwable $e) {
+        }
+
         SocialGraph::insertIgnore($pdo, 'social_profiles', [
             'user_id' => $userId,
             'display_name' => $username,
-            'privacy' => 'public',
+            'privacy' => $privacy,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);

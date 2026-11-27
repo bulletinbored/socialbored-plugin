@@ -8,7 +8,7 @@ available at all times.
 
 ## Requirements
 
-- bulletinbored core `>= 1.1.2`
+- bulletinbored core `>= 1.2.0` (core thread/profile visibility + visibility hooks)
 - PHP `>= 8.1`
 - **editbored** `>= 1.0.1` (composer / Markdown rendering)
 - **bellbored** `>= 1.0.1` (notification center)
@@ -25,8 +25,7 @@ catalog first.
 2. Install and enable **bellbored**.
 3. Install `socialbored` from the plugin catalog (or upload the ZIP).
 4. Enable `socialbored`.
-5. Optionally install the `socialbored` theme and activate it from **Admin → Social**.
-6. Open **Admin → Social** and choose a mode:
+5. Open **Admin → Social** and choose a mode:
    - **Classic forum** — the home page stays the forum; the social feed is at `/social`.
    - **Social network** — the home page becomes the social feed; the classic forum is at `/forum`.
    - **Both** — the forum stays at `/`, the social feed is at `/social`.
@@ -45,21 +44,27 @@ The plugin creates its tables on the first request after enabling. No CLI step i
 - Reactions (like), reposts, bookmarks, hashtags, mentions (through editbored/the core).
 - Reports with a moderation queue at **Admin → Social → Reports**.
 - Notifications through bellbored (`follow`, `like`, `repost`).
-- Privacy-aware media downloads: `/download/{id}` is shadowed so attachments of
-  followers-only/private posts cannot be fetched directly.
-- Privacy-aware classic forum listing: the plugin owns `/` in forum/both mode and `/forum` in
-  social/both mode, and `/search` in forum mode, so private/followers-only social posts never
-  leak into the classic lists. The social profile (`/u/{user}`) is used in every mode for the
-  same reason.
+- Privacy-aware media downloads: the core `/download/{id}` handler now enforces thread and
+  profile visibility, so attachments of followers-only/private posts cannot be fetched
+  directly even if this plugin is disabled.
+- Privacy-aware classic forum listing: the core `fetch_threads()` applies the same visibility
+  rules, so `/`, `/forum`, `/search` and `/category/*` never list private/followers-only social
+  posts. The plugin keeps its richer social views on top of that.
+- Core visibility columns: the plugin writes `threads.visibility` and
+  `users.profile_visibility` alongside its `social_*` tables, and registers the follow-graph
+  hooks (`thread_followers_visibility_sql`, `thread_listing_audience_sql`,
+  `thread_view_decision`, `profile_view_decision`) that let the core resolve
+  "followers" and apply block/mute filters.
 - Feature flags for reactions, reposts, bookmarks, hashtags and the Following feed.
 - Social profile settings at `/settings/social`.
 
 ## Privacy model
 
-Visibility is enforced in SQL for feeds, profiles, search, hashtags and the classic forum
-listing, and by a `thread_before_view` filter for the core thread page. Replies are checked by
-a `post_before_create` filter. Admins and moderators can still open direct thread links for
-moderation.
+Visibility is enforced by the core (`threads.visibility`, `users.profile_visibility`) for
+listings, search, profiles, direct thread links and downloads, and by the plugin's SQL for its
+own feeds, hashtags, replies and media tabs. The plugin supplies the follow graph through the
+core visibility hooks; replies are still checked by a `post_before_create` filter. Admins and
+moderators can open direct thread links for moderation.
 
 A social profile's privacy setting (`public`, `followers`, `private`) governs its **social
 posts** (threads without a category). Classic forum threads keep their own forum visibility,
@@ -69,33 +74,34 @@ is combined with per-post visibility; the more restrictive rule wins.
 Note: editbored image uploads are written to the public `/uploads` directory by
 editbored itself. If you publish followers-only or private posts with images, keep
 that in mind, or use text-only posts for private content. Core attachments uploaded
-through `/download/{id}` are privacy-aware because socialbored shadows that route and
-checks thread visibility.
+through `/download/{id}` are privacy-aware because the core handler now checks the
+thread and profile visibility.
 
 Other plugins that build their own content listings (sitemapbored, RSS/feed plugins,
-custom search or API endpoints) are not automatically aware of social visibility. Keep
-them disabled or extend them to join `social_threads` and apply the same visibility and
-block rules before publishing URLs or titles.
+custom search or API endpoints) should use the core `fetch_threads()` (which applies
+visibility) or the `bb_thread_visibility_condition()` / `bb_can_view_thread()` helpers.
+They should also honour the core block/mute rules if they expose social content.
 
 ## Data and uninstall
 
 Uninstalling the plugin **does not delete social data**. The admin page exposes a separate
 **Delete social data** action (type `DELETE` to confirm). It removes social profiles, follows,
 blocks, mutes, reactions, bookmarks, reposts, hashtags and reports, but never core threads or
-posts.
+posts. Core `threads.visibility` / `users.profile_visibility` are intentionally left untouched:
+deleting social metadata must not turn previously private content public.
 
 Core user deletion has no plugin hook, so social rows can become orphaned. The admin page
 also exposes **Clean up orphaned data**, which removes social rows whose user, thread or post
 no longer exists.
 
-**Important:** while the plugin is enabled it owns the classic listing (`/` in forum/both mode
-and `/forum` in social/both mode) and applies social visibility in SQL, and it installs the
-`thread_before_view` / `post_before_create` filters that protect direct thread links. If you
-**disable or uninstall** the plugin, those filters are gone: private and followers-only posts
-are still core `threads` rows and become visible to everyone. Before disabling/uninstalling,
-either make those posts public, delete the social data, or keep the plugin enabled. Deleting
-the plugin files does not delete the data automatically (by design), so use the admin
-**Delete social data** action first when privacy matters.
+**Important:** core `>= 1.2.0` stores `threads.visibility` and `users.profile_visibility` and
+enforces them in listings, direct thread links, profiles and downloads. The plugin only
+extends the "followers" case through its hooks. If you **disable or uninstall** the plugin,
+followers-only and private posts stay hidden (the core fails closed when nobody answers the
+follow hooks); public posts remain public. The plugin still installs a
+`thread_before_view` filter as a second layer for direct links. Deleting the plugin files does
+not delete the data automatically (by design), so use the admin **Delete social data** action
+when you also want to remove the social metadata.
 
 ## Development
 
@@ -117,9 +123,8 @@ plugins/socialbored/
 
 The core `.gitignore` intentionally ignores `plugins/*` and `themes/*` (except freshbored),
 so this working copy is not tracked by the core repository. Copy/extract
-`plugins/socialbored` and `themes/socialbored` into the separate
-`socialbored-plugin` / `socialbored-theme` repositories, or use the build script below and
-publish the ZIPs.
+`plugins/socialbored` into the separate `socialbored-plugin` repository, or use the build
+script below and publish the ZIP.
 
 Run the core test suite (it auto-discovers `plugins/*/tests/*Test.php`):
 
@@ -136,17 +141,17 @@ find plugins/socialbored -name '*.php' -print0 | xargs -0 -n1 php -l
 
 ## Packaging
 
-Build the plugin ZIP (and the theme ZIP if the theme is present):
+Build the plugin ZIP:
 
 ```bash
 php plugins/socialbored/tools/build.php
 ```
 
-The archives are written to `plugins/socialbored/dist/`. Publish the plugin and theme as
-separate repositories (`socialbored-plugin`, `socialbored-theme`) and add them to the
-bulletinbored catalog. Ready-to-merge catalog entries are included as
-`plugins/socialbored/catalog-entry.json` and `themes/socialbored/catalog-entry.json`.
-Update the `repo` URLs if you publish under a different account.
+The archive is written to `plugins/socialbored/dist/`. Publish the plugin as the
+`socialbored-plugin` repository and add it to the bulletinbored catalog. A ready-to-merge
+catalog entry is included as `plugins/socialbored/catalog-entry.json`. Update the `repo` URL
+if you publish under a different account. The social visual identity ships in the core
+`freshbored` theme, so there is no separate theme package.
 
 ## License
 

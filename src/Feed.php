@@ -32,6 +32,8 @@ class Feed
         $showTabs = true;
         $showComposer = true;
         $tab = $result['tab'];
+        $page = (int)$result['page'];
+        $pages = (int)$result['pages'];
         $path = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/');
         $feedBase = str_contains($path, '/social') ? Http::url('social') : Http::url('');
 
@@ -118,6 +120,9 @@ class Feed
 
         $result = self::query(['tab' => 'latest', 'hashtag' => $tag, 'page' => $page, 'include_forum_threads' => true]);
         $threads = self::attachState($pdo, $result['threads']);
+        $tab = 'latest';
+        $page = (int)$result['page'];
+        $pages = (int)$result['pages'];
         $viewerId = Http::userId();
         $suggestions = SocialGraph::suggestions($pdo, $viewerId, 5);
         $stats = self::stats($pdo);

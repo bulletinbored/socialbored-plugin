@@ -121,6 +121,80 @@ if (!function_exists('socialbored_register_hooks')) {
         $pm->addHook('post_after_delete', function (int $postId, int $threadId = 0): void {
             \SocialBored\Posts::cleanupPostAfterDelete($postId, $threadId);
         });
+
+        // Core visibility primitives. The core owns public/private and asks the
+        // plugin only for the follow graph, so disabling the plugin downgrades
+        // followers-only content to hidden instead of making it public.
+        $pm->addHook('thread_followers_visibility_sql', function ($value, array $context) {
+            $alias = preg_replace('/[^A-Za-z0-9_]/', '', (string)($context['alias'] ?? 't')) ?: 't';
+            $viewerId = (int)($context['viewer_id'] ?? 0);
+            if ($viewerId <= 0) {
+                return null;
+            }
+            $sub = 'sbf_' . $alias;
+            return [
+                'sql' => "EXISTS (
+                    SELECT 1 FROM social_follows {$sub}
+                    WHERE {$sub}.follower_id = ?
+                      AND {$sub}.following_id = {$alias}.user_id
+                )",
+                'params' => [$viewerId],
+            ];
+        }, 5);
+
+        $pm->addHook('thread_listing_audience_sql', function ($value, array $context) {
+            $alias = preg_replace('/[^A-Za-z0-9_]/', '', (string)($context['alias'] ?? 't')) ?: 't';
+            $viewerId = (int)($context['viewer_id'] ?? 0);
+            if ($viewerId <= 0) {
+                return null;
+            }
+            return [
+                'sql' => "NOT EXISTS (
+                    SELECT 1 FROM social_blocks sb
+                    WHERE (sb.blocker_id = ? AND sb.blocked_id = {$alias}.user_id)
+                       OR (sb.blocker_id = {$alias}.user_id AND sb.blocked_id = ?)
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM social_mutes sm
+                    WHERE sm.user_id = ? AND sm.muted_id = {$alias}.user_id
+                )",
+                'params' => [$viewerId, $viewerId, $viewerId],
+            ];
+        }, 5);
+
+        $pm->addHook('thread_view_decision', function (array $thread, int $viewerId, string $visibility): ?bool {
+            if ($viewerId <= 0) {
+                return null;
+            }
+            $pdo = App::getInstance()->pdo;
+            if (!$pdo instanceof PDO) {
+                return $visibility === 'followers' ? false : null;
+            }
+            $authorId = (int)($thread['user_id'] ?? 0);
+            if ($authorId > 0 && \SocialBored\Privacy::isBlockedBetween($pdo, $viewerId, $authorId)) {
+                return false;
+            }
+            if ($visibility !== 'followers') {
+                return null;
+            }
+            return $authorId > 0 && \SocialBored\Privacy::isFollowing($pdo, $viewerId, $authorId);
+        });
+
+        $pm->addHook('profile_view_decision', function (array $user, int $viewerId, string $privacy): ?bool {
+            if ($privacy !== 'followers' || $viewerId <= 0) {
+                return null;
+            }
+            $pdo = App::getInstance()->pdo;
+            if (!$pdo instanceof PDO) {
+                return false;
+            }
+            $targetId = (int)($user['id'] ?? 0);
+            return $targetId > 0 && \SocialBored\Privacy::isFollowing($pdo, $viewerId, $targetId);
+        });
+
+        $pm->addHook('user_after_delete', function (int $userId): void {
+            \SocialBored\Posts::cleanupUserAfterDelete($userId);
+        });
     }
 }
 
@@ -192,10 +266,8 @@ if (!function_exists('socialbored_register_routes')) {
             return \SocialBored\Reports::handleCreate($params);
         });
 
-        // Privacy-aware downloads: the core handler only checks thread status.
-        $pm->registerRoute('GET', '/download/{id:\d+}', function (array $params = []) {
-            return \SocialBored\Media::handleDownload($params);
-        });
+        // Downloads are owned by the core now: its handler enforces the same
+        // thread + profile visibility, so this plugin no longer shadows it.
 
         $pm->registerRoute('GET', '/admin/social', function (array $params = []) {
             return \SocialBored\Admin::handle('GET');

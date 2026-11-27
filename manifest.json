@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "author": "mlzog",
     "description": "Social network mode for bulletinbored: feed, follow, reactions and profiles.",
-    "core": ">=1.1.2",
+    "core": ">=1.2.0",
     "php": ">=8.1",
     "bootstrap": "socialbored.php",
     "dependencies": {

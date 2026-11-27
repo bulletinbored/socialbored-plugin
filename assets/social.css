@@ -23,8 +23,9 @@
     --sb-danger: #c92a2a;
 }
 
+/* The page background is theme identity: let freshbored (or the active theme)
+   decide it and only keep the text colour here. */
 html.social-mode body {
-    background: var(--sb-bg);
     color: var(--sb-text);
 }
 

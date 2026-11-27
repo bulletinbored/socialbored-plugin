@@ -34,10 +34,20 @@ class Privacy
         }
 
         $meta = self::threadMeta($pdo, (int)($thread['id'] ?? 0));
-        $visibility = (string)($meta['visibility'] ?? 'public');
+        // The core column is authoritative; the social column is kept for
+        // backward compatibility, so combine both and take the stricter value.
+        $visibility = self::mostRestrictiveVisibility(
+            (string)($thread['visibility'] ?? 'public'),
+            (string)($meta['visibility'] ?? 'public')
+        );
         // The social profile privacy governs social posts (no category). Classic
         // forum threads keep their own forum visibility.
-        $profilePrivacy = empty($thread['category_id']) ? self::profilePrivacy($pdo, $authorId) : 'public';
+        $profilePrivacy = empty($thread['category_id'])
+            ? self::mostRestrictiveVisibility(
+                (string)($thread['author_profile_visibility'] ?? 'public'),
+                self::profilePrivacy($pdo, $authorId)
+            )
+            : 'public';
 
         if ($viewerId <= 0) {
             return $profilePrivacy === 'public' && $visibility === 'public';
@@ -64,14 +74,36 @@ class Privacy
         if ($userId <= 0) {
             return 'public';
         }
+
+        $core = 'public';
+        try {
+            $stmt = $pdo->prepare("SELECT profile_visibility FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $value = (string)($stmt->fetchColumn() ?: 'public');
+            $core = in_array($value, ['public', 'followers', 'private'], true) ? $value : 'public';
+        } catch (\Throwable $e) {
+        }
+
+        $social = 'public';
         try {
             $stmt = $pdo->prepare("SELECT privacy FROM social_profiles WHERE user_id = ?");
             $stmt->execute([$userId]);
-            $privacy = (string)($stmt->fetchColumn() ?: 'public');
-            return in_array($privacy, ['public', 'followers', 'private'], true) ? $privacy : 'public';
+            $value = (string)($stmt->fetchColumn() ?: 'public');
+            $social = in_array($value, ['public', 'followers', 'private'], true) ? $value : 'public';
         } catch (\Throwable $e) {
-            return 'public';
         }
+
+        return self::mostRestrictiveVisibility($core, $social);
+    }
+
+    private static function mostRestrictiveVisibility(string $a, string $b): string
+    {
+        $rank = static fn(string $v): int => match ($v) {
+            'private' => 2,
+            'followers' => 1,
+            default => 0,
+        };
+        return $rank($a) >= $rank($b) ? $a : $b;
     }
 
     public static function canViewProfile(\PDO $pdo, array $user, ?int $viewerId = null): bool
@@ -89,13 +121,7 @@ class Privacy
             return false;
         }
 
-        $privacy = 'public';
-        try {
-            $stmt = $pdo->prepare("SELECT privacy FROM social_profiles WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            $privacy = (string)($stmt->fetchColumn() ?: 'public');
-        } catch (\Throwable $e) {
-        }
+        $privacy = self::profilePrivacy($pdo, $userId);
 
         return match ($privacy) {
             'private' => false,
@@ -114,7 +140,9 @@ class Privacy
         if ($authz === null) {
             return false;
         }
-        return $authz->can($userId, 'admin.access') || $authz->can($userId, 'moderation.manage');
+        return $authz->can($userId, 'admin.access')
+            || $authz->can($userId, 'moderation.manage')
+            || $authz->can($userId, 'threads.approve');
     }
 
     public static function isFollowing(\PDO $pdo, int $followerId, int $followingId): bool

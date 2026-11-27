@@ -107,15 +107,18 @@ class Posts
             return 0;
         }
 
+        // Core owns threads.visibility; social_threads.visibility is kept in
+        // sync for backward compatibility with the plugin's own feed queries.
         $stmt = $pdo->prepare("
-            INSERT INTO threads (category_id, user_id, title, content, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'visible', ?, ?)
+            INSERT INTO threads (category_id, user_id, title, content, status, visibility, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'visible', ?, ?, ?)
         ");
         $stmt->execute([
             $threadData['category_id'] ?? null,
             (int)$threadData['user_id'],
             (string)$threadData['title'],
             (string)$threadData['content'],
+            $visibility,
             (string)$threadData['created_at'],
             (string)$threadData['updated_at'],
         ]);
@@ -233,6 +236,14 @@ class Posts
         $pdo->prepare("UPDATE social_threads SET visibility = ? WHERE thread_id = ?")
             ->execute([$visibility, $threadId]);
 
+        // Keep the core column authoritative so privacy survives even if this
+        // plugin is later disabled.
+        try {
+            $pdo->prepare("UPDATE threads SET visibility = ? WHERE id = ?")
+                ->execute([$visibility, $threadId]);
+        } catch (\Throwable $e) {
+        }
+
         if (Http::wantsJson()) {
             return Http::json(['ok' => true, 'visibility' => $visibility, 'csrf' => Http::token()]);
         }
@@ -324,6 +335,43 @@ class Posts
             $pdo->prepare("DELETE FROM social_reactions WHERE target_type = 'post' AND target_id = ?")->execute([$postId]);
             $pdo->prepare("DELETE FROM social_reports WHERE target_type = 'post' AND target_id = ?")->execute([$postId]);
         } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * Remove the social rows owned by a deleted user. The core fires the
+     * user_after_delete hook after the users row is removed; threads/posts are
+     * left to the core so this method only touches the social tables.
+     */
+    public static function cleanupUserAfterDelete(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+        $pdo = App::getInstance()->pdo;
+        if (!$pdo instanceof \PDO) {
+            return;
+        }
+
+        $statements = [
+            ['DELETE FROM social_profiles WHERE user_id = ?', [$userId]],
+            ['DELETE FROM social_follows WHERE follower_id = ?', [$userId]],
+            ['DELETE FROM social_follows WHERE following_id = ?', [$userId]],
+            ['DELETE FROM social_blocks WHERE blocker_id = ?', [$userId]],
+            ['DELETE FROM social_blocks WHERE blocked_id = ?', [$userId]],
+            ['DELETE FROM social_mutes WHERE user_id = ?', [$userId]],
+            ['DELETE FROM social_mutes WHERE muted_id = ?', [$userId]],
+            ['DELETE FROM social_reactions WHERE user_id = ?', [$userId]],
+            ['DELETE FROM social_bookmarks WHERE user_id = ?', [$userId]],
+            ['DELETE FROM social_reposts WHERE user_id = ?', [$userId]],
+            ['DELETE FROM social_reports WHERE reporter_id = ?', [$userId]],
+        ];
+
+        foreach ($statements as [$sql, $params]) {
+            try {
+                $pdo->prepare($sql)->execute($params);
+            } catch (\Throwable $e) {
+            }
         }
     }
 

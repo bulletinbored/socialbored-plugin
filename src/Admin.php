@@ -18,15 +18,6 @@ class Admin
         $app = App::getInstance();
         $pdo = $app->pdo;
         $pm = $app->pluginManager;
-        $themeManager = $app->themeManager;
-        if ($themeManager === null && class_exists('\ThemeManager')) {
-            $root = dirname(__DIR__, 3);
-            $themeManager = new \ThemeManager(
-                $root . '/themes',
-                $app->config['theme_manifest'] ?? $root . '/data/themes.json',
-                $app->config['theme'] ?? 'default'
-            );
-        }
         $message = '';
         $error = '';
 
@@ -59,18 +50,6 @@ class Admin
                         }
                         $message = \pt('socialbored', 'settings_saved');
                     }
-                } elseif ($action === 'activate_theme') {
-                    $theme = (string)($_POST['theme'] ?? '');
-                    $themes = $themeManager !== null ? $themeManager->getAll() : [];
-                    if ($themeManager === null || !in_array($theme, ['socialbored', 'freshbored'], true)) {
-                        $error = \pt('socialbored', 'theme_not_found');
-                    } elseif (!isset($themes[$theme])) {
-                        $error = \pt('socialbored', 'theme_not_found');
-                    } elseif ($themeManager->activate($theme)) {
-                        $message = \pt('socialbored', 'theme_activated');
-                    } else {
-                        $error = \pt('socialbored', 'theme_not_found');
-                    }
                 } elseif ($action === 'delete_data') {
                     if (($_POST['confirm'] ?? '') !== 'DELETE') {
                         $error = \pt('socialbored', 'delete_confirm_error');
@@ -88,7 +67,6 @@ class Admin
         $settings = Settings::all($pm);
         $deps = self::dependencies($pm);
         $stats = self::stats($pdo);
-        $theme = self::themeStatus($themeManager);
         $schemaVersion = Schema::currentVersion($pdo);
         $coreViews = dirname(__DIR__, 3) . '/views';
 
@@ -206,18 +184,6 @@ class Admin
             'editbored' => $pm->isEnabled('editbored'),
             'bellbored' => $pm->isEnabled('bellbored'),
             'textmebored' => $pm->isEnabled('textmebored'),
-        ];
-    }
-
-    public static function themeStatus(?\ThemeManager $themeManager): array
-    {
-        if ($themeManager === null) {
-            return ['installed' => false, 'active' => ''];
-        }
-        $themes = $themeManager->getAll();
-        return [
-            'installed' => isset($themes['socialbored']),
-            'active' => (string)$themeManager->getActive(),
         ];
     }
 

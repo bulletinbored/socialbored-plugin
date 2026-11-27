@@ -26,7 +26,8 @@ $bookmarked = !empty($post['bookmarked']);
 $replyCount = (int)($post['reply_count'] ?? 0);
 $attachments = is_array($post['attachments'] ?? null) ? $post['attachments'] : [];
 $hashtags = \SocialBored\Util::extractHashtags($content);
-$longPost = \mb_strlen(trim($content)) > 520;
+$isThread = !empty($ctx['is_thread']);
+$longPost = !$isThread && \mb_strlen(trim($content)) > 520;
 $showActions = $ctx['show_actions'] ?? true;
 $pm = \App::getInstance()->pluginManager;
 $features = \SocialBored\Settings::featuresFor($pm);
@@ -65,7 +66,9 @@ $showHashtags = !empty($features['hashtags']);
                 <i class="fas fa-ellipsis"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="<?= \escape($threadUrl) ?>"><i class="fas fa-up-right-from-square"></i><?= \escape(\pt('socialbored', 'open_post')) ?></a></li>
+                <?php if (!$isThread): ?>
+                    <li><a class="dropdown-item" href="<?= \escape($threadUrl) ?>"><i class="fas fa-up-right-from-square"></i><?= \escape(\pt('socialbored', 'open_post')) ?></a></li>
+                <?php endif; ?>
                 <li><button class="dropdown-item" type="button" data-social-copy="<?= \escape($threadUrl) ?>"><i class="fas fa-link"></i><?= \escape(\pt('socialbored', 'copy_link')) ?></button></li>
                 <?php if ($isOwner): ?>
                     <li><hr class="dropdown-divider"></li>
@@ -134,9 +137,17 @@ $showHashtags = !empty($features['hashtags']);
                 $original = (string)($upload['original_name'] ?? 'file');
                 ?>
                 <?php if (str_starts_with($mime, 'image/')): ?>
-                    <a class="social-media-item" href="<?= \escape($downloadUrl) ?>" target="_blank" rel="noopener">
-                        <img src="<?= \escape($downloadUrl) ?>" alt="<?= \escape($original) ?>" loading="lazy">
-                    </a>
+                    <?php if ($isThread): ?>
+                        <a class="social-media-item" href="<?= \escape($downloadUrl) ?>"
+                           data-lightbox-src="<?= \escape($downloadUrl) ?>"
+                           data-lightbox-alt="<?= \escape($original) ?>">
+                            <img src="<?= \escape($downloadUrl) ?>" alt="<?= \escape($original) ?>" loading="lazy">
+                        </a>
+                    <?php else: ?>
+                        <a class="social-media-item" href="<?= \escape($threadUrl) ?>">
+                            <img src="<?= \escape($downloadUrl) ?>" alt="<?= \escape($original) ?>" loading="lazy">
+                        </a>
+                    <?php endif; ?>
                 <?php else: ?>
                     <a class="social-media-file" href="<?= \escape($downloadUrl) ?>">
                         <i class="fas fa-paperclip"></i><?= \escape($original) ?>
@@ -169,7 +180,7 @@ $showHashtags = !empty($features['hashtags']);
                 </form>
             <?php endif; ?>
 
-            <a class="social-action" href="<?= \escape($threadUrl) ?>#comments" title="<?= \escape(\pt('socialbored', 'replies')) ?>">
+            <a class="social-action" href="<?= \escape($isThread ? $threadUrl . '#comments' : $threadUrl) ?>" title="<?= \escape(\pt('socialbored', 'replies')) ?>">
                 <i class="far fa-comment"></i>
                 <span><?= \SocialBored\Util::compact($replyCount) ?></span>
             </a>

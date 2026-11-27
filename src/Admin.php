@@ -68,6 +68,7 @@ class Admin
         $deps = self::dependencies($pm);
         $stats = self::stats($pdo);
         $schemaVersion = Schema::currentVersion($pdo);
+        $themeInfo = self::themeStatus($app);
         $coreViews = dirname(__DIR__, 3) . '/views';
 
         include dirname(__DIR__) . '/views/admin/settings.php';
@@ -151,6 +152,41 @@ class Admin
 
         include dirname(__DIR__) . '/views/admin/reports.php';
         return true;
+    }
+
+    /**
+     * Report the active theme and whether it provides the socialbored identity.
+     *
+     * The social components consume the core `--fb-*` design tokens. freshbored
+     * ships the social-mode values; another theme is compatible when it defines
+     * those tokens too. When the active theme cannot be determined we return
+     * null so the admin page simply omits the row.
+     */
+    public static function themeStatus(object $app): ?array
+    {
+        $root = dirname(__DIR__, 3);
+        $manifestPath = (string)($app->config['theme_manifest'] ?? $root . '/data/themes.json');
+        $themes = [];
+        if (is_file($manifestPath)) {
+            $data = json_decode((string)file_get_contents($manifestPath), true);
+            if (is_array($data)) {
+                $themes = $data;
+            }
+        }
+
+        $active = (string)($themes['active'] ?? $app->config['theme'] ?? '');
+        if ($active === '') {
+            return null;
+        }
+
+        $cssPath = $root . '/themes/' . $active . '/style.css';
+        $compatible = $active === 'freshbored';
+        if (!$compatible && is_file($cssPath)) {
+            $css = (string)file_get_contents($cssPath);
+            $compatible = str_contains($css, '--fb-brand') && str_contains($css, '--fb-bg');
+        }
+
+        return ['name' => $active, 'compatible' => $compatible];
     }
 
     public static function stats(\PDO $pdo): array

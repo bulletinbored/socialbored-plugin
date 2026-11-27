@@ -339,6 +339,137 @@ class Posts
     }
 
     /**
+     * Social post detail page. Registered only in full social mode; forum mode
+     * keeps the core thread view with its sidebar and threaded comments.
+     */
+    public static function handleThread(array $params = []): bool|\Bulletin\Response
+    {
+        $app = App::getInstance();
+        $pdo = $app->pdo;
+        $viewerId = Http::userId();
+        $threadId = (int)($params['id'] ?? 0);
+        if ($threadId <= 0) {
+            throw new \Bulletin\NotFoundException('Thread not found');
+        }
+
+        $profileVisibility = \bb_profile_visibility_select('u');
+        $stmt = $pdo->prepare("
+            SELECT t.*, u.username AS author, u.avatar AS author_avatar, u.role AS author_role,
+                   {$profileVisibility},
+                   COALESCE(st.visibility, t.visibility, 'public') AS visibility,
+                   st.kind,
+                   COALESCE(t.views, 0) AS view_count,
+                   (SELECT COUNT(*) FROM posts p WHERE p.thread_id = t.id AND p.status = 'visible') AS reply_count,
+                   (SELECT COUNT(*) FROM social_reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id) AS reaction_count,
+                   (SELECT COUNT(*) FROM social_reposts rp WHERE rp.thread_id = t.id) AS repost_count,
+                   (SELECT COUNT(*) FROM social_bookmarks b WHERE b.thread_id = t.id) AS bookmark_count
+            FROM threads t
+            JOIN users u ON u.id = t.user_id
+            LEFT JOIN social_threads st ON st.thread_id = t.id
+            WHERE t.id = ? AND t.status IN ('visible', 'sticky', 'locked')
+        ");
+        $stmt->execute([$threadId]);
+        $thread = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$thread) {
+            throw new \Bulletin\NotFoundException('Thread not found');
+        }
+        if (!\can_view_thread((string)($thread['status'] ?? 'visible'))) {
+            throw new \Bulletin\ForbiddenException('Thread not available');
+        }
+        Privacy::assertThreadViewable($pdo, $thread);
+
+        $thread = Feed::attachState($pdo, [$thread])[0] ?? $thread;
+        $replies = self::threadReplies($pdo, $threadId, $viewerId);
+
+        $byId = [];
+        $childrenMap = [];
+        $topLevel = [];
+        foreach ($replies as $reply) {
+            $byId[(int)$reply['id']] = $reply;
+        }
+        foreach ($replies as $reply) {
+            $id = (int)$reply['id'];
+            $parentId = (int)($reply['parent_id'] ?? 0);
+            if ($parentId > 0 && isset($byId[$parentId])) {
+                $childrenMap[$parentId][] = $id;
+            } else {
+                $topLevel[] = $id;
+            }
+        }
+
+        try {
+            $pdo->prepare('UPDATE threads SET views = COALESCE(views, 0) + 1 WHERE id = ?')->execute([$threadId]);
+        } catch (\Throwable $e) {
+        }
+
+        $replyError = (string)($_SESSION['reply_error'] ?? '');
+        $replyContent = (string)($_SESSION['reply_content'] ?? '');
+        unset($_SESSION['reply_error'], $_SESSION['reply_content']);
+
+        $loggedIn = Http::loggedIn();
+        $isLocked = ($thread['status'] ?? '') === 'locked';
+        $canReply = $loggedIn && !$isLocked;
+
+        $isWatching = false;
+        if ($viewerId > 0) {
+            try {
+                $watch = $pdo->prepare('SELECT 1 FROM thread_watchers WHERE thread_id = ? AND user_id = ?');
+                $watch->execute([$threadId, $viewerId]);
+                $isWatching = (bool)$watch->fetchColumn();
+            } catch (\Throwable $e) {
+            }
+        }
+
+        include dirname(__DIR__) . '/views/thread.php';
+        return true;
+    }
+
+    /**
+     * @return array<int,array>
+     */
+    private static function threadReplies(\PDO $pdo, int $threadId, int $viewerId): array
+    {
+        $stmt = $pdo->prepare("
+            SELECT p.*, u.username AS author, u.avatar AS author_avatar, u.role AS author_role,
+                   (SELECT COUNT(*) FROM social_reactions r
+                    WHERE r.target_type = 'post' AND r.target_id = p.id) AS reaction_count,
+                   EXISTS(SELECT 1 FROM social_reactions r2
+                    WHERE r2.target_type = 'post' AND r2.target_id = p.id AND r2.user_id = ?) AS liked
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.thread_id = ? AND p.status = 'visible'
+            ORDER BY p.created_at ASC, p.id ASC
+        ");
+        $stmt->execute([$viewerId, $threadId]);
+        $replies = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        if ($replies === []) {
+            return [];
+        }
+
+        $ids = array_map(static fn(array $row): int => (int)$row['id'], $replies);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        try {
+            $uploads = $pdo->prepare("
+                SELECT * FROM uploads
+                WHERE post_id IN ({$placeholders})
+                ORDER BY created_at ASC, id ASC
+            ");
+            $uploads->execute($ids);
+            $byPost = [];
+            foreach ($uploads->fetchAll(\PDO::FETCH_ASSOC) as $upload) {
+                $byPost[(int)$upload['post_id']][] = $upload;
+            }
+            foreach ($replies as &$reply) {
+                $reply['attachments'] = $byPost[(int)$reply['id']] ?? [];
+            }
+            unset($reply);
+        } catch (\Throwable $e) {
+        }
+
+        return $replies;
+    }
+
+    /**
      * Remove the social rows owned by a deleted user. The core fires the
      * user_after_delete hook after the users row is removed; threads/posts are
      * left to the core so this method only touches the social tables.

@@ -75,11 +75,11 @@ if (!function_exists('socialbored_register_hooks')) {
 
         $pm->addHook('navbar_icons', function () use ($pm) {
             socialbored_navbar_icons($pm);
-        });
+        }, 10);
 
         $pm->addHook('mobile_tabbar_icons', function () use ($pm) {
             socialbored_mobile_icons($pm);
-        });
+        }, 10);
 
         $pm->addHook('admin_sidebar_items', function () use ($pm) {
             socialbored_admin_sidebar($pm);
@@ -207,6 +207,16 @@ if (!function_exists('socialbored_register_routes')) {
         $pm->registerRoute('GET', '/social/state', function (array $params = []) {
             return \SocialBored\Feed::handleState($params);
         });
+        if ($mode === 'social') {
+            // Full social mode gets a dedicated post page without the forum
+            // sidebar. Forum/both mode keep the core thread view.
+            $pm->registerRoute('GET', '/thread/{id:\d+}', function (array $params = []) {
+                return \SocialBored\Posts::handleThread($params);
+            });
+            $pm->registerRoute('GET', '/thread/{id:\d+}-{slug}', function (array $params = []) {
+                return \SocialBored\Posts::handleThread($params);
+            });
+        }
         $pm->registerRoute('GET', '/compose', function (array $params = []) {
             return \SocialBored\Posts::handleCompose('GET');
         });
@@ -219,6 +229,12 @@ if (!function_exists('socialbored_register_routes')) {
                 return \SocialBored\Feed::handleHashtag($params);
             });
         }
+        // Account settings and social settings live on one page. Core links to
+        // /edit-profile land here while the plugin is enabled; if it is
+        // disabled, the core page is untouched.
+        $pm->registerRoute('GET', '/edit-profile', function (array $params = []) {
+            return \SocialBored\Http::redirect('settings/social');
+        });
         $pm->registerRoute('GET', '/settings/social', function (array $params = []) {
             return \SocialBored\Profiles::handleSettings('GET');
         });
@@ -322,6 +338,19 @@ if (!function_exists('socialbored_register_routes')) {
 if (!function_exists('socialbored_head_assets')) {
     function socialbored_head_assets(\PluginManager $pm): void
     {
+        $nonce = function_exists('csp_nonce') ? csp_nonce() : (App::getInstance()->cspNonce ?? '');
+
+        // In full social mode the core mobile actions are redundant even on
+        // /forum, where the social stylesheet is not loaded. Emit the rule
+        // inline so it applies everywhere without depending on social-mode.
+        if (\SocialBored\Settings::mode($pm) === 'social') {
+            echo '<style nonce="' . htmlspecialchars((string)$nonce, ENT_QUOTES, 'UTF-8') . '">'
+                . '@media (max-width: 991.98px){'
+                . 'a[href*="/new-thread"],a[href*="/new_thread"],#mobileMenuToggle{display:none!important;}'
+                . '}'
+                . '</style>' . "\n";
+        }
+
         if (!socialbored_is_social_request($pm)) {
             return;
         }
@@ -329,7 +358,6 @@ if (!function_exists('socialbored_head_assets')) {
         $css = socialbored_asset_url('assets/social.css');
         echo '<link href="' . htmlspecialchars($css, ENT_QUOTES, 'UTF-8') . '" rel="stylesheet">' . "\n";
 
-        $nonce = function_exists('csp_nonce') ? csp_nonce() : (App::getInstance()->cspNonce ?? '');
         echo '<script nonce="' . htmlspecialchars((string)$nonce, ENT_QUOTES, 'UTF-8') . '">'
             . 'document.documentElement.classList.add("social-mode");'
             . '</script>' . "\n";
@@ -345,6 +373,7 @@ if (!function_exists('socialbored_footer_assets')) {
 
         $boot = [
             'csrf' => function_exists('generate_csrf_token') ? generate_csrf_token() : '',
+            'mode' => \SocialBored\Settings::mode($pm),
             'userId' => (int)($_SESSION['user_id'] ?? 0),
             'loggedIn' => function_exists('is_logged_in') && is_logged_in(),
             'endpoints' => [

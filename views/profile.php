@@ -102,7 +102,6 @@ include $coreViews . '/header.php';
                 <div class="social-profile-actions">
                     <?php if ($isSelf): ?>
                         <a class="btn btn-brand btn-sm" href="<?= \escape(\url('edit_profile')) ?>"><i class="fas fa-pen"></i><?= \escape(\t('edit_profile')) ?></a>
-                        <a class="btn btn-outline-soft btn-sm" href="<?= \escape(\SocialBored\Http::url('settings/social')) ?>"><i class="fas fa-user-gear"></i><?= \escape(\pt('socialbored', 'social_settings')) ?></a>
                         <?php if ($hasMessages): ?>
                             <a class="btn btn-outline-soft btn-sm" href="<?= \escape(\SocialBored\Http::url('messages')) ?>"><i class="fas fa-envelope"></i><?= \escape(\t('messages')) ?></a>
                         <?php endif; ?>

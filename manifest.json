@@ -1,7 +1,7 @@
 {
     "id": "socialbored",
     "name": "socialbored",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "mlzog",
     "description": "Social network mode for bulletinbored: feed, follow, reactions and profiles.",
     "core": ">=1.2.0",

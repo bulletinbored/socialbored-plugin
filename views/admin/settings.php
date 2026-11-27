@@ -4,6 +4,7 @@ $settings = $settings ?? [];
 $deps = $deps ?? [];
 $stats = $stats ?? [];
 $schemaVersion = (int)($schemaVersion ?? 0);
+$themeInfo = $themeInfo ?? null;
 $message = $message ?? '';
 $error = $error ?? '';
 
@@ -90,6 +91,19 @@ include $coreViews . '/admin_header.php';
                         <th scope="row" class="text-muted fw-normal"><?= \escape(\pt('socialbored', 'mode')) ?></th>
                         <td class="text-end fw-semibold"><?= \escape($modeLabel) ?></td>
                     </tr>
+                    <?php if (is_array($themeInfo) && !empty($themeInfo['name'])): ?>
+                        <tr>
+                            <th scope="row" class="text-muted fw-normal"><?= \escape(\pt('socialbored', 'theme')) ?></th>
+                            <td class="text-end">
+                                <span class="fw-semibold"><?= \escape($themeInfo['name']) ?></span>
+                                <?php if (!empty($themeInfo['compatible'])): ?>
+                                    <span class="badge text-bg-success ms-1"><?= \escape(\pt('socialbored', 'theme_compatible')) ?></span>
+                                <?php else: ?>
+                                    <span class="badge text-bg-warning ms-1"><?= \escape(\pt('socialbored', 'theme_not_compatible')) ?></span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
                     <tr>
                         <th scope="row" class="text-muted fw-normal"><?= \escape(\pt('socialbored', 'schema_version')) ?></th>
                         <td class="text-end fw-semibold"><?= $schemaVersion ?></td>
@@ -214,15 +228,6 @@ include $coreViews . '/admin_header.php';
                 </tbody>
             </table>
             <p class="small text-muted mt-3 mb-0"><?= \escape(\pt('socialbored', 'dependencies_hint')) ?></p>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0"><i class="fas fa-palette me-2"></i><?= \escape(\pt('socialbored', 'admin_core_identity')) ?></h5>
-        </div>
-        <div class="card-body">
-            <p class="small text-muted mb-0"><?= \escape(\pt('socialbored', 'admin_core_identity_body')) ?></p>
         </div>
     </div>
 

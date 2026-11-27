@@ -288,11 +288,66 @@
 
     function repointMobileCompose() {
         if (!endpoints.compose) return;
-        document.querySelectorAll('a.mobile-tab[href*="new-thread"], a.nav-link[href*="new-thread"], .footer-list a[href*="new-thread"], .btn-new-thread[href*="new-thread"]').forEach(function (link) {
+
+        if (boot.mode !== 'social') {
+            // Outside full social mode keep the original behaviour exactly:
+            // every New Thread link is repointed to the social composer.
+            document.querySelectorAll('a.mobile-tab[href*="new-thread"], a.nav-link[href*="new-thread"], .footer-list a[href*="new-thread"], .btn-new-thread[href*="new-thread"]').forEach(function (link) {
+                link.setAttribute('href', endpoints.compose);
+            });
+            return;
+        }
+
+        // Full social mode: the mobile tab bar already has the plugin's own New
+        // post action. Hide the core New Thread tab instead of turning it into a
+        // second New post button next to it.
+        document.querySelectorAll('a.mobile-tab[href*="new-thread"]').forEach(function (link) {
+            link.style.display = 'none';
+            link.setAttribute('aria-hidden', 'true');
+            link.setAttribute('tabindex', '-1');
+        });
+        document.querySelectorAll('a.nav-link[href*="new-thread"], .footer-list a[href*="new-thread"], .btn-new-thread[href*="new-thread"]').forEach(function (link) {
             link.setAttribute('href', endpoints.compose);
+        });
+    }
+
+    function initLightbox() {
+        var modal = document.getElementById('socialLightbox');
+        if (!modal) return;
+        var image = modal.querySelector('[data-lightbox-image]');
+        var close = modal.querySelector('[data-lightbox-close]');
+        if (!image) return;
+
+        function closeModal() {
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            image.removeAttribute('src');
+            document.body.classList.remove('social-lightbox-open');
+        }
+
+        document.querySelectorAll('[data-lightbox-src]').forEach(function (link) {
+            link.addEventListener('click', function (event) {
+                var src = link.getAttribute('data-lightbox-src');
+                if (!src) return;
+                event.preventDefault();
+                image.src = src;
+                image.alt = link.getAttribute('data-lightbox-alt') || '';
+                modal.hidden = false;
+                modal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('social-lightbox-open');
+            });
+        });
+
+        if (close) close.addEventListener('click', closeModal);
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) closeModal();
         });
     }
 
     repointMobileCompose();
     injectThreadActions();
+    initLightbox();
 })();

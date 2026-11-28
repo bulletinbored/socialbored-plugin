@@ -3,7 +3,6 @@
  * Plugin Name: socialbored
  * Author: mlzog
  * Description: Social network mode for bulletinbored: feed, follow, reactions and profiles.
- * Version: 1.0.0
  * License: BSD Zero Clause License
  */
 

@@ -6,6 +6,16 @@ It turns a bulletinbored installation into a small social network: a feed, profi
 reactions, reposts, bookmarks, hashtags, reports and notifications. The classic forum remains
 available at all times.
 
+## Screenshots
+
+| Feed | Post |
+| :---: | :---: |
+| ![Social feed](https://blog.bulletinbored.net/images/socialbored/socialbored-feed.png) | ![Post detail](https://blog.bulletinbored.net/images/socialbored/socialbored-post.png) |
+
+| Profile | Direct messages |
+| :---: | :---: |
+| ![Social profile](https://blog.bulletinbored.net/images/socialbored/socialbored-profile.png) | ![Direct messages](https://blog.bulletinbored.net/images/socialbored/socialbored-messages.png) |
+
 ## Requirements
 
 - bulletinbored core `>= 1.2.0` (core thread/profile visibility + visibility hooks)

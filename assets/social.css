@@ -2080,3 +2080,134 @@ html.social-mode .social-aside::-webkit-scrollbar-thumb:hover {
 html.social-mode .social-aside > * {
     flex: 0 0 auto;
 }
+
+/* ---------- composer media preview ---------- */
+html.social-mode .composer-preview {
+    position: relative;
+    margin: 0 1.25rem 1rem;
+    overflow: hidden;
+    border: 1px solid var(--sb-border);
+    border-radius: 16px;
+    background: var(--sb-surface-2);
+    box-shadow: 0 1px 2px rgba(27, 24, 48, .04);
+}
+
+html.social-mode .composer-preview[hidden] {
+    display: none;
+}
+
+html.social-mode .composer-preview-media {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+    max-height: 380px;
+    background: var(--sb-surface-2);
+}
+
+html.social-mode .composer-preview.is-image .composer-preview-media {
+    padding: .35rem;
+}
+
+html.social-mode .composer-preview.is-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: contain;
+    border-radius: 12px;
+}
+
+html.social-mode .composer-preview.is-video .composer-preview-media {
+    aspect-ratio: 16 / 9;
+    max-height: none;
+    background: #05040a;
+}
+
+html.social-mode .composer-preview.is-video iframe,
+html.social-mode .composer-preview.is-video video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: 0;
+    background: #000;
+}
+
+html.social-mode .composer-preview-label {
+    position: absolute;
+    left: .65rem;
+    bottom: .65rem;
+    max-width: calc(100% - 4.5rem);
+    padding: .3rem .6rem;
+    border-radius: 999px;
+    background: rgba(15, 12, 30, .62);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+html.social-mode .composer-preview-remove {
+    position: absolute;
+    top: .55rem;
+    right: .55rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92);
+    color: #1b1830;
+    box-shadow: 0 4px 12px rgba(15, 12, 30, .25);
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, color .15s ease;
+}
+
+html.social-mode .composer-preview-remove:hover {
+    background: #fff;
+    color: #dc2626;
+    transform: scale(1.04);
+}
+
+html.social-mode .composer-preview.is-error .composer-preview-media {
+    min-height: 160px;
+}
+
+html.social-mode .composer-preview-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 160px;
+    background: #fffbeb;
+    color: #b45309;
+    font-size: 1.6rem;
+}
+
+html.social-mode .composer-preview.is-error .composer-preview-label {
+    background: rgba(120, 53, 15, .9);
+}
+
+@media (max-width: 575.98px) {
+    html.social-mode .composer-preview {
+        margin-left: .9rem;
+        margin-right: .9rem;
+    }
+
+    html.social-mode .composer-preview-media,
+    html.social-mode .composer-preview.is-image img {
+        max-height: 300px;
+    }
+}
+
+html.social-mode .composer-preview.is-video .composer-preview-label {
+    top: .65rem;
+    bottom: auto;
+}

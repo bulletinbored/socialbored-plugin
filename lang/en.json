@@ -178,6 +178,7 @@
     "media_image_url": "Image URL",
     "media_video_url": "Video URL",
     "media_hint": "Use one media item per post. Uploaded images are stored privately and served only to people who can see the post.",
+    "remove_media": "Remove",
     "compose_rate_limited": "You are posting too fast. Please try again later.",
     "untitled_post": "Untitled post",
     "profile_rate_limited": "You are updating your profile too fast. Please try again later.",

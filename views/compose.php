@@ -69,7 +69,6 @@ $visibilityIcon = match ($visibility) {
                     <button type="button" class="composer-tool" data-composer-panel="video-url">
                         <i class="fas fa-clapperboard"></i><span><?= \escape(\pt('socialbored', 'composer_video_link')) ?></span>
                     </button>
-                    <span class="composer-file-chip" data-composer-file hidden></span>
                 </div>
 
                 <div class="composer-panels">
@@ -84,6 +83,15 @@ $visibilityIcon = match ($visibility) {
                                value="<?= \escape((string)($draft['video_url'] ?? '')) ?>">
                     </div>
                     <p class="composer-hint"><?= \escape(\pt('socialbored', 'media_hint')) ?></p>
+                </div>
+
+                <div class="composer-preview" data-composer-preview hidden>
+                    <div class="composer-preview-media" data-composer-preview-media></div>
+                    <span class="composer-preview-label" data-composer-preview-label></span>
+                    <button type="button" class="composer-preview-remove" data-composer-preview-remove
+                            aria-label="<?= \escape(\pt('socialbored', 'remove_media')) ?>">
+                        <i class="fas fa-xmark"></i>
+                    </button>
                 </div>
 
                 <footer class="composer-footer">

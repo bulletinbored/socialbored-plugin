@@ -178,6 +178,7 @@
     "media_image_url": "URL immagine",
     "media_video_url": "URL video",
     "media_hint": "Usa un solo media per post. Le immagini caricate sono salvate in area privata e servite solo a chi può vedere il post.",
+    "remove_media": "Rimuovi",
     "compose_rate_limited": "Stai pubblicando troppo velocemente. Riprova più tardi.",
     "untitled_post": "Post senza titolo",
     "profile_rate_limited": "Stai aggiornando il profilo troppo velocemente. Riprova più tardi.",

@@ -42,16 +42,33 @@ class Reactions
         $existing = self::userKind($pdo, $me, $targetType, $targetId);
         $active = false;
 
-        $pdo->prepare("DELETE FROM social_reactions WHERE user_id = ? AND target_type = ? AND target_id = ?")
-            ->execute([$me, $targetType, $targetId]);
-
-        if ($existing !== $kind) {
-            $pdo->prepare("INSERT INTO social_reactions (user_id, target_type, target_id, kind, created_at) VALUES (?, ?, ?, ?, ?)")
-                ->execute([$me, $targetType, $targetId, $kind, date('Y-m-d H:i:s')]);
-            $active = true;
-            if ($targetType === 'thread') {
-                Notifications::like($pdo, $target['thread'], $me);
+        $ownTransaction = !$pdo->inTransaction();
+        try {
+            if ($ownTransaction) {
+                $pdo->beginTransaction();
             }
+            $pdo->prepare("DELETE FROM social_reactions WHERE user_id = ? AND target_type = ? AND target_id = ?")
+                ->execute([$me, $targetType, $targetId]);
+
+            if ($existing !== $kind) {
+                $pdo->prepare("INSERT INTO social_reactions (user_id, target_type, target_id, kind, created_at) VALUES (?, ?, ?, ?, ?)")
+                    ->execute([$me, $targetType, $targetId, $kind, date('Y-m-d H:i:s')]);
+                $active = true;
+            }
+            if ($ownTransaction) {
+                $pdo->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($ownTransaction && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return Http::wantsJson()
+                ? Http::json(['ok' => false, 'error' => 'react_failed'], 500)
+                : Http::back('/');
+        }
+
+        if ($active && $targetType === 'thread') {
+            Notifications::like($pdo, $target['thread'], $me);
         }
 
         $count = self::countForTarget($pdo, $targetType, $targetId);
@@ -86,7 +103,7 @@ class Reactions
                 $stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
                 $stmt->execute([$targetId]);
                 $post = $stmt->fetch(\PDO::FETCH_ASSOC);
-                if (!$post) {
+                if (!$post || (string)($post['status'] ?? 'visible') !== 'visible') {
                     return null;
                 }
                 $stmt = $pdo->prepare("SELECT * FROM threads WHERE id = ?");

@@ -9,6 +9,11 @@ $loggedIn = \SocialBored\Http::loggedIn();
 $viewerId = $viewerId ?? \SocialBored\Http::userId();
 $pm = \App::getInstance()->pluginManager;
 $features = \SocialBored\Settings::featuresFor($pm);
+$pdo = \App::getInstance()->pdo;
+$sidebarData = $pdo instanceof \PDO ? \SocialBored\Feed::sidebarData($pdo, $viewerId) : [];
+$viewerProfile = $sidebarData['profile'] ?? null;
+$viewerStats = $sidebarData['stats'] ?? null;
+$trendingTags = $sidebarData['trending'] ?? [];
 
 $reportSuccess = \SocialBored\Util::flash('report_success');
 $reportError = \SocialBored\Util::flash('report_error');
@@ -112,6 +117,48 @@ include $coreViews . '/header.php';
         </section>
 
         <aside class="social-aside">
+            <?php if (is_array($viewerProfile)): ?>
+                <?php
+                $viewerUsername = (string)($viewerProfile['username'] ?? '');
+                $viewerUrl = \SocialBored\Util::profileUrl($viewerUsername);
+                $viewerCover = (string)($viewerProfile['cover'] ?? '');
+                $viewerHasCover = \SocialBored\Util::hasCover($viewerCover);
+                $viewerDisplay = (string)($viewerProfile['display_name'] ?? $viewerUsername);
+                ?>
+                <div class="social-card social-viewer-card">
+                    <a class="social-viewer-cover<?= $viewerHasCover ? ' has-image' : '' ?>"
+                       href="<?= \escape($viewerUrl) ?>"
+                       <?= $viewerHasCover ? 'style="background-image:url(\'' . \escape(\SocialBored\Util::coverUrl($viewerCover)) . '\')"' : '' ?>>
+                    </a>
+                    <div class="social-viewer-body">
+                        <a class="social-viewer-avatar" href="<?= \escape($viewerUrl) ?>">
+                            <?= \SocialBored\Util::avatar($viewerUsername, (string)($viewerProfile['avatar'] ?? ''), 64) ?>
+                        </a>
+                        <a class="social-viewer-name" href="<?= \escape($viewerUrl) ?>">
+                            <strong><?= \escape($viewerDisplay !== '' ? $viewerDisplay : $viewerUsername) ?></strong>
+                            <span>@<?= \escape($viewerUsername) ?></span>
+                        </a>
+                        <?php if (!empty($viewerProfile['bio'])): ?>
+                            <p class="social-viewer-bio"><?= \escape(\SocialBored\Util::truncate((string)$viewerProfile['bio'], 120)) ?></p>
+                        <?php endif; ?>
+                        <div class="social-viewer-stats">
+                            <a href="<?= \escape($viewerUrl) ?>">
+                                <strong><?= \SocialBored\Util::compact((int)($viewerStats['posts'] ?? 0)) ?></strong>
+                                <span><?= \escape(\pt('socialbored', 'stat_posts')) ?></span>
+                            </a>
+                            <a href="<?= \escape($viewerUrl) ?>/followers">
+                                <strong><?= \SocialBored\Util::compact((int)($viewerStats['followers'] ?? 0)) ?></strong>
+                                <span><?= \escape(\pt('socialbored', 'followers')) ?></span>
+                            </a>
+                            <a href="<?= \escape($viewerUrl) ?>/following">
+                                <strong><?= \SocialBored\Util::compact((int)($viewerStats['following'] ?? 0)) ?></strong>
+                                <span><?= \escape(\pt('socialbored', 'following')) ?></span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="social-card social-stats">
                 <div><strong><?= \SocialBored\Util::compact($stats['posts'] ?? 0) ?></strong><span><?= \escape(\pt('socialbored', 'stat_posts')) ?></span></div>
                 <div><strong><?= \SocialBored\Util::compact($stats['members'] ?? 0) ?></strong><span><?= \escape(\pt('socialbored', 'stat_members')) ?></span></div>
@@ -129,11 +176,30 @@ include $coreViews . '/header.php';
                 </div>
             <?php endif; ?>
 
-            <div class="social-card social-about">
-                <h2 class="social-card-title"><?= \escape(\pt('socialbored', 'about')) ?></h2>
-                <p><?= \escape(\pt('socialbored', 'about_body')) ?></p>
-                <a href="<?= \escape(\SocialBored\Http::url('social')) ?>"><?= \escape(\pt('socialbored', 'feed')) ?></a>
-            </div>
+            <?php if (!empty($trendingTags)): ?>
+                <div class="social-card social-trending">
+                    <h2 class="social-card-title"><?= \escape(\pt('socialbored', 'trending')) ?></h2>
+                    <div class="social-trending-list">
+                        <?php foreach ($trendingTags as $tag): ?>
+                            <a class="social-trending-item" href="<?= \escape(\SocialBored\Util::hashtagUrl($tag['tag'])) ?>">
+                                <span>#<?= \escape($tag['tag']) ?></span>
+                                <small><?= \SocialBored\Util::compact($tag['total']) ?> <?= \escape(\pt('socialbored', 'stat_posts')) ?></small>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($loggedIn): ?>
+                <div class="social-card social-shortcuts">
+                    <h2 class="social-card-title"><?= \escape(\pt('socialbored', 'shortcuts')) ?></h2>
+                    <a href="<?= \escape(\SocialBored\Http::url('compose')) ?>"><i class="fas fa-pen-to-square"></i><?= \escape(\pt('socialbored', 'new_post')) ?></a>
+                    <a href="<?= \escape(\SocialBored\Http::url('messages')) ?>"><i class="fas fa-envelope"></i><?= \escape(\t('messages')) ?></a>
+                    <a href="<?= \escape(\SocialBored\Http::url('notifications')) ?>"><i class="fas fa-bell"></i><?= \escape(\t('notifications')) ?></a>
+                    <a href="<?= \escape(\SocialBored\Util::profileUrl((string)($_SESSION['username'] ?? ''))) ?>"><i class="fas fa-user"></i><?= \escape(\pt('socialbored', 'my_profile')) ?></a>
+                </div>
+            <?php endif; ?>
+
         </aside>
     </div>
 </div>

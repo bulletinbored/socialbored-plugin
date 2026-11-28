@@ -27,6 +27,8 @@ class Posts
             'title' => '',
             'content' => '',
             'visibility' => Settings::defaultVisibility($pm),
+            'image_url' => '',
+            'video_url' => '',
         ];
 
         if ($method === 'POST') {
@@ -39,28 +41,62 @@ class Posts
                 $draft['title'] = trim((string)($_POST['title'] ?? ''));
                 $draft['content'] = trim((string)($_POST['content'] ?? ''));
                 $draft['visibility'] = self::normalizeVisibility($_POST['visibility'] ?? Settings::defaultVisibility($pm));
+                $draft['image_url'] = trim((string)($_POST['image_url'] ?? ''));
+                $draft['video_url'] = trim((string)($_POST['video_url'] ?? ''));
 
-                if (\mb_strlen($draft['content']) < 2) {
+                $file = $_FILES['image'] ?? null;
+                $hasFile = is_array($file) && !empty($file['name']);
+                $hasImageUrl = $draft['image_url'] !== '';
+                $hasVideoUrl = $draft['video_url'] !== '';
+                $mediaCount = ($hasFile ? 1 : 0) + ($hasImageUrl ? 1 : 0) + ($hasVideoUrl ? 1 : 0);
+
+                if ($hasImageUrl && Util::safeHttpUrl($draft['image_url']) === null) {
+                    $error = \pt('socialbored', 'image_url_invalid');
+                } elseif ($hasVideoUrl && Util::videoEmbed($draft['video_url']) === null) {
+                    $error = \pt('socialbored', 'video_url_invalid');
+                } elseif ($mediaCount > 1) {
+                    $error = \pt('socialbored', 'compose_media_conflict');
+                } elseif (\mb_strlen($draft['content']) < 2 && $mediaCount === 0) {
                     $error = \pt('socialbored', 'compose_empty');
                 } elseif (\mb_strlen($draft['content']) > 20000) {
                     $error = \pt('socialbored', 'compose_too_long');
                 } else {
-                    $threadId = self::createPost($pdo, $pm, $me, $draft);
-                    if ($threadId <= 0) {
-                        $error = \pt('socialbored', 'compose_failed');
-                    } else {
-                        $finalTitle = (string)$draft['title'];
-                        try {
-                            $titleStmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
-                            $titleStmt->execute([$threadId]);
-                            $finalTitle = (string)($titleStmt->fetchColumn() ?: $finalTitle);
-                        } catch (\Throwable $e) {
+                    $uploaded = null;
+                    if ($hasFile) {
+                        $stored = Util::storeSocialImage($file, $me);
+                        if (is_string($stored)) {
+                            $error = \pt('socialbored', $stored);
+                        } else {
+                            $uploaded = $stored;
                         }
-                        $url = Util::threadUrl(['id' => $threadId, 'title' => $finalTitle]);
-                        if (Http::wantsJson()) {
-                            return Http::json(['ok' => true, 'thread_id' => $threadId, 'url' => $url, 'csrf' => Http::token()], 201);
+                    }
+
+                    if ($error === '') {
+                        $threadId = self::createPost($pdo, $pm, $me, $draft);
+                        if ($threadId <= 0) {
+                            $error = \pt('socialbored', 'compose_failed');
+                            $uploaded = self::removeStoredUpload($uploaded);
+                        } else {
+                            $mediaError = self::attachComposeMedia($pdo, $threadId, $me, $uploaded, $draft['image_url'], $draft['video_url']);
+                            if ($mediaError !== '') {
+                                self::deleteComposeThread($pdo, $threadId);
+                                $uploaded = self::removeStoredUpload($uploaded);
+                                $error = \pt('socialbored', $mediaError);
+                            } else {
+                                $finalTitle = (string)$draft['title'];
+                                try {
+                                    $titleStmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+                                    $titleStmt->execute([$threadId]);
+                                    $finalTitle = (string)($titleStmt->fetchColumn() ?: $finalTitle);
+                                } catch (\Throwable $e) {
+                                }
+                                $url = Util::threadUrl(['id' => $threadId, 'title' => $finalTitle]);
+                                if (Http::wantsJson()) {
+                                    return Http::json(['ok' => true, 'thread_id' => $threadId, 'url' => $url, 'csrf' => Http::token()], 201);
+                                }
+                                return \Bulletin\Response::redirect($url);
+                            }
                         }
-                        return \Bulletin\Response::redirect($url);
                     }
                 }
             }
@@ -149,6 +185,77 @@ class Posts
         }
 
         return $threadId;
+    }
+
+    /**
+     * @param array{filename:string,original:string,mime:string,size:int}|null $uploaded
+     */
+    private static function attachComposeMedia(
+        \PDO $pdo,
+        int $threadId,
+        int $userId,
+        ?array $uploaded,
+        string $imageUrl,
+        string $videoUrl
+    ): string {
+        try {
+            if ($uploaded !== null) {
+                $pdo->prepare("
+                    INSERT INTO uploads (thread_id, post_id, user_id, filename, original_name, size, mime_type, created_at)
+                    VALUES (?, NULL, ?, ?, ?, ?, ?, ?)
+                ")->execute([
+                    $threadId,
+                    $userId,
+                    $uploaded['filename'],
+                    $uploaded['original'],
+                    $uploaded['size'],
+                    $uploaded['mime'],
+                    date('Y-m-d H:i:s'),
+                ]);
+            }
+            if ($imageUrl !== '') {
+                $pdo->prepare("INSERT INTO social_media (thread_id, kind, url, created_at) VALUES (?, 'image', ?, ?)")
+                    ->execute([$threadId, $imageUrl, date('Y-m-d H:i:s')]);
+            } elseif ($videoUrl !== '') {
+                $pdo->prepare("INSERT INTO social_media (thread_id, kind, url, created_at) VALUES (?, 'video', ?, ?)")
+                    ->execute([$threadId, $videoUrl, date('Y-m-d H:i:s')]);
+            }
+        } catch (\Throwable $e) {
+            return 'compose_failed';
+        }
+        return '';
+    }
+
+    private static function removeStoredUpload(?array $uploaded): ?array
+    {
+        if ($uploaded === null || empty($uploaded['filename'])) {
+            return null;
+        }
+        $path = \dirname(__DIR__, 3) . '/uploads/private/' . basename((string)$uploaded['filename']);
+        if (is_file($path)) {
+            @unlink($path);
+        }
+        return null;
+    }
+
+    private static function deleteComposeThread(\PDO $pdo, int $threadId): void
+    {
+        if ($threadId <= 0) {
+            return;
+        }
+        self::cleanupThreadBeforeDelete($threadId, []);
+        self::cleanupThreadAfterDelete($threadId, []);
+        foreach ([
+            'DELETE FROM uploads WHERE thread_id = ?',
+            'DELETE FROM social_media WHERE thread_id = ?',
+            'DELETE FROM posts WHERE thread_id = ?',
+            'DELETE FROM threads WHERE id = ?',
+        ] as $sql) {
+            try {
+                $pdo->prepare($sql)->execute([$threadId]);
+            } catch (\Throwable $e) {
+            }
+        }
     }
 
     public static function syncHashtags(\PDO $pdo, int $threadId, string $content): void

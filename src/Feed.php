@@ -337,12 +337,98 @@ class Feed
         } catch (\Throwable $e) {
         }
 
+        $byUrl = [];
+        try {
+            $stmt = $pdo->prepare("
+                SELECT * FROM social_media
+                WHERE thread_id IN ({$placeholders})
+                ORDER BY id ASC
+            ");
+            $stmt->execute($ids);
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $media) {
+                $byUrl[(int)$media['thread_id']][] = $media;
+            }
+        } catch (\Throwable $e) {
+        }
+
         foreach ($threads as &$row) {
             $row['attachments'] = $byThread[(int)$row['id']] ?? [];
+            $row['url_media'] = $byUrl[(int)$row['id']] ?? [];
         }
         unset($row);
 
         return $threads;
+    }
+
+    public static function sidebarData(\PDO $pdo, int $viewerId): array
+    {
+        $profile = null;
+        $viewerStats = null;
+
+        if ($viewerId > 0) {
+            try {
+                $stmt = $pdo->prepare("SELECT id, username, avatar, role FROM users WHERE id = ?");
+                $stmt->execute([$viewerId]);
+                $viewer = $stmt->fetch(\PDO::FETCH_ASSOC);
+                if ($viewer) {
+                    $profile = Profiles::ensureProfile($pdo, $viewerId, (string)$viewer['username']);
+                    $profile['username'] = (string)$viewer['username'];
+                    $profile['avatar'] = (string)($viewer['avatar'] ?? '');
+                    $profile['role'] = (string)($viewer['role'] ?? 'user');
+                    $viewerStats = Profiles::stats($pdo, $viewerId);
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
+        return [
+            'profile' => $profile,
+            'stats' => $viewerStats,
+            'trending' => self::trendingTags($pdo, $viewerId, 5),
+        ];
+    }
+
+    /**
+     * @return array<int,array{tag:string,total:int}>
+     */
+    public static function trendingTags(\PDO $pdo, int $viewerId, int $limit = 5): array
+    {
+        $limit = max(1, min(10, $limit));
+        $visibility = Privacy::threadVisibilityCondition($viewerId, 'tt');
+        $audience = Privacy::threadAudienceCondition($viewerId, 'ta');
+        $params = $visibility['params'] + $audience['params'];
+
+        try {
+            $stmt = $pdo->prepare("
+                SELECT sh.tag, COUNT(DISTINCT t.id) AS total
+                FROM social_hashtags sh
+                JOIN social_thread_hashtags sth ON sth.hashtag_id = sh.id
+                JOIN threads t ON t.id = sth.thread_id
+                JOIN users u ON u.id = t.user_id
+                LEFT JOIN social_threads st ON st.thread_id = t.id
+                LEFT JOIN social_profiles sp ON sp.user_id = t.user_id
+                WHERE t.status IN ('visible', 'sticky', 'locked')
+                  AND {$visibility['sql']}
+                  AND {$audience['sql']}
+                GROUP BY sh.id, sh.tag
+                ORDER BY total DESC, sh.tag ASC
+                LIMIT :limit
+            ");
+            foreach ($params as $name => $value) {
+                $stmt->bindValue($name, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+            }
+            $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
+            $stmt->execute();
+            return array_map(
+                static fn(array $row): array => [
+                    'tag' => (string)$row['tag'],
+                    'total' => (int)$row['total'],
+                ],
+                $stmt->fetchAll(\PDO::FETCH_ASSOC)
+            );
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     public static function stats(\PDO $pdo): array

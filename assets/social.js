@@ -347,7 +347,53 @@
         });
     }
 
+    function initComposer() {
+        var form = document.querySelector('.composer-form');
+        if (!form) return;
+
+        document.querySelectorAll('[data-composer-panel]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var key = button.getAttribute('data-composer-panel');
+                var panel = form.querySelector('[data-composer-panel-body="' + key + '"]');
+                if (!panel) return;
+                var willShow = panel.hidden;
+                form.querySelectorAll('[data-composer-panel-body]').forEach(function (item) {
+                    item.hidden = true;
+                });
+                panel.hidden = !willShow;
+                form.querySelectorAll('[data-composer-panel]').forEach(function (item) {
+                    item.classList.toggle('is-active', item === button && willShow);
+                });
+            });
+        });
+
+        var file = form.querySelector('[data-composer-file-input]');
+        var chip = form.querySelector('[data-composer-file]');
+        if (file && chip) {
+            file.addEventListener('change', function () {
+                if (file.files && file.files[0]) {
+                    chip.hidden = false;
+                    chip.textContent = file.files[0].name;
+                } else {
+                    chip.hidden = true;
+                    chip.textContent = '';
+                }
+            });
+        }
+
+        var visibility = form.querySelector('[data-composer-visibility]');
+        var icon = form.querySelector('[data-visibility-icon]');
+        if (visibility && icon) {
+            visibility.addEventListener('change', function () {
+                icon.className = 'fas ' + (visibility.value === 'followers'
+                    ? 'fa-user-group'
+                    : visibility.value === 'private' ? 'fa-lock' : 'fa-globe');
+            });
+        }
+    }
+
     repointMobileCompose();
     injectThreadActions();
     initLightbox();
+    initComposer();
 })();

@@ -56,7 +56,7 @@ class Reports
             $stmt = $pdo->prepare("SELECT p.*, t.id AS thread_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?");
             $stmt->execute([$targetId]);
             $post = $stmt->fetch(\PDO::FETCH_ASSOC);
-            if (!$post) {
+            if (!$post || (string)($post['status'] ?? 'visible') !== 'visible') {
                 Http::flash('report_error', \pt('socialbored', 'report_invalid'));
                 return Http::back('/');
             }

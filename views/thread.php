@@ -64,7 +64,7 @@ include $coreViews . '/header.php';
                     <?= \SocialBored\Util::avatar($viewerName, $viewerAvatar, 38) ?>
                 </div>
                 <div class="social-comment-composer-body">
-                    <textarea name="content" class="form-control" rows="2" data-no-editbored placeholder="<?= \escape(\pt('socialbored', 'comment_placeholder')) ?>" required><?= \escape($replyContent) ?></textarea>
+                    <textarea name="content" class="form-control" rows="2" data-plain-editor placeholder="<?= \escape(\pt('socialbored', 'comment_placeholder')) ?>" required><?= \escape($replyContent) ?></textarea>
                     <div class="social-comment-composer-actions">
                         <button type="submit" class="btn btn-brand btn-sm"><?= \escape(\pt('socialbored', 'comment_submit')) ?></button>
                     </div>
@@ -155,7 +155,7 @@ include $coreViews . '/header.php';
                                         <?= \SocialBored\Http::csrfField() ?>
                                         <input type="hidden" name="thread_id" value="<?= $threadId ?>">
                                         <input type="hidden" name="parent_id" value="<?= $cid ?>">
-                                        <textarea name="content" class="form-control" rows="2" data-no-editbored placeholder="<?= \escape(\pt('socialbored', 'comment_placeholder')) ?>" required></textarea>
+                                        <textarea name="content" class="form-control" rows="2" data-plain-editor placeholder="<?= \escape(\pt('socialbored', 'comment_placeholder')) ?>" required></textarea>
                                         <button type="submit" class="btn btn-brand btn-sm"><?= \escape(\pt('socialbored', 'action_reply')) ?></button>
                                     </form>
                                 </details>

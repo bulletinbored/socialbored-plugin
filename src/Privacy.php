@@ -62,9 +62,21 @@ class Privacy
         return true;
     }
 
+    /**
+     * Content access check: both moderation status and privacy.
+     */
+    public static function canAccessThread(\PDO $pdo, array $thread, ?int $viewerId = null): bool
+    {
+        $status = (string)($thread['status'] ?? 'visible');
+        if (!\can_view_thread($status)) {
+            return false;
+        }
+        return self::canViewThread($pdo, $thread, $viewerId);
+    }
+
     public static function assertThreadViewable(\PDO $pdo, array $thread): void
     {
-        if (!self::canViewThread($pdo, $thread)) {
+        if (!self::canAccessThread($pdo, $thread)) {
             throw new \Bulletin\ForbiddenException('This post is not available');
         }
     }
@@ -208,37 +220,59 @@ class Privacy
     /**
      * SQL condition that only leaves visible threads in a feed query.
      *
+     * Core columns (`threads.visibility`, `users.profile_visibility`) are
+     * authoritative. The social tables may only make a row stricter, never
+     * looser: if the social metadata is removed while the core row stays
+     * private, the content remains private.
+     *
      * @return array{sql:string, params:array<string,int>}
      */
-    public static function threadVisibilityCondition(int $viewerId, string $prefix = 'sv'): array
-    {
+    public static function threadVisibilityCondition(
+        int $viewerId,
+        string $prefix = 'sv',
+        string $threadAlias = 't',
+        string $userAlias = 'u'
+    ): array {
+        $threadAlias = preg_replace('/[^A-Za-z0-9_]/', '', $threadAlias) ?: 't';
+        $userAlias = preg_replace('/[^A-Za-z0-9_]/', '', $userAlias) ?: 'u';
         $p = ':' . $prefix;
+
+        $threadVisibility = "(
+            CASE
+                WHEN {$threadAlias}.visibility = 'private' OR st.visibility = 'private' THEN 'private'
+                WHEN {$threadAlias}.visibility = 'followers' OR st.visibility = 'followers' THEN 'followers'
+                ELSE 'public'
+            END
+        )";
+        $profileVisibility = "(
+            CASE WHEN {$threadAlias}.category_id IS NULL THEN
+                CASE
+                    WHEN {$userAlias}.profile_visibility = 'private' OR sp.privacy = 'private' THEN 'private'
+                    WHEN {$userAlias}.profile_visibility = 'followers' OR sp.privacy = 'followers' THEN 'followers'
+                    ELSE 'public'
+                END
+            ELSE 'public' END
+        )";
 
         if ($viewerId <= 0) {
             return [
-                'sql' => "(
-                    (st.visibility IS NULL OR st.visibility = 'public')
-                    AND (t.category_id IS NOT NULL OR sp.privacy IS NULL OR sp.privacy = 'public')
-                )",
+                'sql' => "({$threadVisibility} = 'public' AND {$profileVisibility} = 'public')",
                 'params' => [],
             ];
         }
 
         return [
             'sql' => "(
-                t.user_id = {$p}_author_viewer
-                OR (
-                    (t.category_id IS NOT NULL OR sp.privacy IS NULL OR sp.privacy = 'public')
-                    AND (st.visibility IS NULL OR st.visibility = 'public')
-                )
+                {$threadAlias}.user_id = {$p}_author_viewer
+                OR ({$threadVisibility} = 'public' AND {$profileVisibility} = 'public')
                 OR (
                     EXISTS (
                         SELECT 1 FROM social_follows {$prefix}_f
                         WHERE {$prefix}_f.follower_id = {$p}_follower_viewer
-                          AND {$prefix}_f.following_id = t.user_id
+                          AND {$prefix}_f.following_id = {$threadAlias}.user_id
                     )
-                    AND (t.category_id IS NOT NULL OR sp.privacy IS NULL OR sp.privacy IN ('public', 'followers'))
-                    AND (st.visibility IS NULL OR st.visibility IN ('public', 'followers'))
+                    AND {$threadVisibility} IN ('public', 'followers')
+                    AND {$profileVisibility} IN ('public', 'followers')
                 )
             )",
             'params' => [

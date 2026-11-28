@@ -403,6 +403,21 @@ html.social-mode .navbar-forum .nav-link:hover {
     display: block;
 }
 
+html.social-mode .social-media-item.social-media-video {
+    aspect-ratio: 16 / 9;
+    background: #000;
+}
+
+html.social-mode .social-media-video iframe,
+html.social-mode .social-media-video video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: 0;
+    object-fit: contain;
+    background: #000;
+}
+
 .social-media-file {
     display: inline-flex;
     align-items: center;
@@ -1570,4 +1585,498 @@ html.social-mode body.social-lightbox-open {
     }
 }
 
+/* ---------- composer ---------- */
+html.social-mode .social-compose-shell {
+    max-width: 1060px;
+}
 
+html.social-mode .social-compose-page-head {
+    margin-bottom: 1rem;
+}
+
+html.social-mode .social-compose-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 1.25rem;
+    align-items: start;
+}
+
+html.social-mode .composer-card {
+    padding: 0;
+    overflow: hidden;
+    border-radius: 20px;
+}
+
+html.social-mode .composer-form {
+    display: flex;
+    flex-direction: column;
+}
+
+html.social-mode .composer-head {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 1.1rem 1.25rem .65rem;
+}
+
+html.social-mode .composer-identity {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    min-width: 0;
+}
+
+html.social-mode .composer-identity strong {
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+html.social-mode .composer-audience {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    width: max-content;
+    padding: .2rem .55rem;
+    border: 1px solid var(--sb-border);
+    border-radius: 999px;
+    background: var(--sb-surface-2);
+    color: var(--sb-muted);
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+html.social-mode .composer-audience i {
+    color: var(--sb-brand);
+    font-size: .72rem;
+}
+
+html.social-mode .composer-audience-select {
+    appearance: none;
+    border: 0;
+    padding: 0 1rem 0 0;
+    background: transparent;
+    color: var(--sb-text);
+    font-size: .78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+html.social-mode .composer-audience-select:focus {
+    outline: none;
+}
+
+html.social-mode .composer-headline {
+    width: 100%;
+    border: 0;
+    padding: .15rem 1.25rem .35rem;
+    background: transparent;
+    color: var(--sb-text);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+html.social-mode .composer-headline::placeholder {
+    color: var(--sb-muted-soft);
+    font-weight: 600;
+}
+
+html.social-mode .composer-headline:focus {
+    outline: none;
+}
+
+html.social-mode .composer-textarea {
+    width: 100%;
+    min-height: 168px;
+    resize: vertical;
+    border: 0;
+    padding: .35rem 1.25rem .9rem;
+    background: transparent;
+    color: var(--sb-text);
+    font-size: 1.06rem;
+    line-height: 1.55;
+}
+
+html.social-mode .composer-textarea::placeholder {
+    color: var(--sb-muted-soft);
+}
+
+html.social-mode .composer-textarea:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+html.social-mode .composer-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    padding: .7rem 1.25rem;
+    border-top: 1px solid var(--sb-border-soft);
+    border-bottom: 1px solid var(--sb-border-soft);
+    background: var(--sb-surface-2);
+}
+
+html.social-mode .composer-tool {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .5rem .75rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sb-muted);
+    font-size: .84rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+html.social-mode .composer-tool:hover,
+html.social-mode .composer-tool.is-active {
+    border-color: var(--sb-brand-ring);
+    background: var(--sb-brand-soft);
+    color: var(--sb-brand);
+}
+
+html.social-mode .composer-tool input[type="file"] {
+    display: none;
+}
+
+html.social-mode .composer-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    max-width: 220px;
+    padding: .35rem .65rem;
+    border-radius: 999px;
+    background: var(--sb-surface);
+    border: 1px solid var(--sb-border-soft);
+    color: var(--sb-muted);
+    font-size: .78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+html.social-mode .composer-file-chip[hidden] {
+    display: none;
+}
+
+html.social-mode .composer-panels {
+    padding: .8rem 1.25rem .2rem;
+}
+
+html.social-mode .composer-panel {
+    margin-bottom: .75rem;
+}
+
+html.social-mode .composer-panel[hidden] {
+    display: none;
+}
+
+html.social-mode .composer-panel .form-label {
+    color: var(--sb-muted);
+    font-size: .78rem;
+    font-weight: 700;
+}
+
+html.social-mode .composer-panel .form-control {
+    border-radius: 14px;
+    border-color: var(--sb-border-soft);
+    background: var(--sb-surface-2);
+}
+
+html.social-mode .composer-hint {
+    margin: 0 0 .7rem;
+    color: var(--sb-muted);
+    font-size: .78rem;
+}
+
+html.social-mode .composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+    padding: .9rem 1.25rem 1.1rem;
+    border-top: 1px solid var(--sb-border-soft);
+}
+
+html.social-mode .composer-footer-note {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: var(--sb-muted);
+    font-size: .78rem;
+}
+
+html.social-mode .composer-footer-note i {
+    color: var(--sb-brand);
+}
+
+html.social-mode .composer-actions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-left: auto;
+}
+
+html.social-mode .composer-actions .btn-brand {
+    border-radius: 999px;
+    padding-left: 1.4rem;
+    padding-right: 1.4rem;
+}
+
+html.social-mode .social-compose-aside {
+    position: sticky;
+    top: calc(var(--fb-navbar-h, 68px) + 1rem);
+}
+
+html.social-mode .composer-tips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+}
+
+html.social-mode .composer-tips li {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    color: var(--sb-muted);
+    font-size: .86rem;
+    line-height: 1.45;
+}
+
+html.social-mode .composer-tips i {
+    flex: 0 0 auto;
+    width: 1.1rem;
+    margin-top: .15rem;
+    color: var(--sb-brand);
+    text-align: center;
+}
+
+@media (max-width: 991.98px) {
+    html.social-mode .social-compose-grid {
+        grid-template-columns: 1fr;
+    }
+
+    html.social-mode .social-compose-aside {
+        position: static;
+    }
+}
+
+@media (max-width: 575.98px) {
+    html.social-mode .composer-head,
+    html.social-mode .composer-toolbar,
+    html.social-mode .composer-panels,
+    html.social-mode .composer-footer {
+        padding-left: .9rem;
+        padding-right: .9rem;
+    }
+
+    html.social-mode .composer-headline,
+    html.social-mode .composer-textarea {
+        padding-left: .9rem;
+        padding-right: .9rem;
+    }
+
+    html.social-mode .composer-footer-note {
+        display: none;
+    }
+}
+
+
+
+/* ---------- richer feed sidebar ---------- */
+html.social-mode .social-viewer-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+html.social-mode .social-viewer-cover {
+    display: block;
+    height: 74px;
+    background: linear-gradient(135deg, var(--sb-brand, #6d28d9), var(--sb-brand-bright, #8b5cf6));
+    background-size: cover;
+    background-position: center;
+}
+
+html.social-mode .social-viewer-body {
+    padding: 0 1.1rem 1.1rem;
+}
+
+html.social-mode .social-viewer-avatar {
+    display: inline-flex;
+    margin-top: -32px;
+    padding: 3px;
+    border-radius: 50%;
+    background: var(--sb-surface, #fff);
+}
+
+html.social-mode .social-viewer-name {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    margin-top: .5rem;
+    color: var(--sb-text, #1b1830);
+    text-decoration: none;
+}
+
+html.social-mode .social-viewer-name strong {
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+html.social-mode .social-viewer-name span {
+    color: var(--sb-muted, #65617e);
+    font-size: .78rem;
+}
+
+html.social-mode .social-viewer-bio {
+    margin: .55rem 0 .7rem;
+    color: var(--sb-muted, #65617e);
+    font-size: .84rem;
+    line-height: 1.45;
+}
+
+html.social-mode .social-viewer-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .35rem;
+    padding-top: .65rem;
+    border-top: 1px solid var(--sb-border-soft, #f0edf8);
+}
+
+html.social-mode .social-viewer-stats a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .05rem;
+    color: var(--sb-text, #1b1830);
+    text-decoration: none;
+}
+
+html.social-mode .social-viewer-stats strong {
+    font-size: .92rem;
+    font-weight: 800;
+}
+
+html.social-mode .social-viewer-stats span {
+    color: var(--sb-muted, #65617e);
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+html.social-mode .social-trending-list {
+    display: flex;
+    flex-direction: column;
+}
+
+html.social-mode .social-trending-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .5rem .15rem;
+    border-bottom: 1px solid var(--sb-border-soft, #f0edf8);
+    color: var(--sb-text, #1b1830);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: .88rem;
+}
+
+html.social-mode .social-trending-item:last-child {
+    border-bottom: 0;
+}
+
+html.social-mode .social-trending-item:hover {
+    color: var(--sb-brand, #6d28d9);
+}
+
+html.social-mode .social-trending-item small {
+    color: var(--sb-muted, #65617e);
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+html.social-mode .social-shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+}
+
+html.social-mode .social-shortcuts a {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .45rem .2rem;
+    color: var(--sb-text, #1b1830);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: .88rem;
+}
+
+html.social-mode .social-shortcuts a:hover {
+    color: var(--sb-brand, #6d28d9);
+}
+
+html.social-mode .social-shortcuts a i {
+    width: 1.1rem;
+    color: var(--sb-brand, #6d28d9);
+    text-align: center;
+}
+
+/* ---------- viewport-height social sidebar ---------- */
+html.social-mode .social-aside {
+    height: calc(100vh - var(--fb-navbar-h, 68px) - 2rem);
+    max-height: calc(100vh - var(--fb-navbar-h, 68px) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: .35rem;
+    scrollbar-gutter: stable;
+}
+
+html.social-mode .social-aside::-webkit-scrollbar {
+    width: 8px;
+}
+
+html.social-mode .social-aside::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html.social-mode .social-aside::-webkit-scrollbar-thumb {
+    background: var(--sb-border, #e7e4f2);
+    border-radius: 999px;
+}
+
+html.social-mode .social-aside::-webkit-scrollbar-thumb:hover {
+    background: var(--sb-muted-soft, #9a96ad);
+}
+
+@supports (height: 100dvh) {
+    html.social-mode .social-aside {
+        height: calc(100dvh - var(--fb-navbar-h, 68px) - 2rem);
+        max-height: calc(100dvh - var(--fb-navbar-h, 68px) - 2rem);
+    }
+}
+
+@media (max-width: 991.98px) {
+    html.social-mode .social-aside {
+        position: static;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+}
+
+/* Flex children of the fixed-height sidebar must keep their content height;
+   otherwise they shrink and the viewer card is clipped to its cover bar. */
+html.social-mode .social-aside > * {
+    flex: 0 0 auto;
+}

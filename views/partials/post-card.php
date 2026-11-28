@@ -25,6 +25,7 @@ $reposted = !empty($post['reposted']);
 $bookmarked = !empty($post['bookmarked']);
 $replyCount = (int)($post['reply_count'] ?? 0);
 $attachments = is_array($post['attachments'] ?? null) ? $post['attachments'] : [];
+$urlMedia = is_array($post['url_media'] ?? null) ? $post['url_media'] : [];
 $hashtags = \SocialBored\Util::extractHashtags($content);
 $isThread = !empty($ctx['is_thread']);
 $longPost = !$isThread && \mb_strlen(trim($content)) > 520;
@@ -152,6 +153,43 @@ $showHashtags = !empty($features['hashtags']);
                     <a class="social-media-file" href="<?= \escape($downloadUrl) ?>">
                         <i class="fas fa-paperclip"></i><?= \escape($original) ?>
                     </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($urlMedia !== []): ?>
+        <div class="social-media-grid">
+            <?php foreach ($urlMedia as $item):
+                $mediaKind = (string)($item['kind'] ?? 'image');
+                $mediaUrl = (string)($item['url'] ?? '');
+                ?>
+                <?php if ($mediaKind === 'image' && $mediaUrl !== ''): ?>
+                    <?php if ($isThread): ?>
+                        <a class="social-media-item" href="<?= \escape($mediaUrl) ?>"
+                           data-lightbox-src="<?= \escape($mediaUrl) ?>"
+                           data-lightbox-alt="image">
+                            <img src="<?= \escape($mediaUrl) ?>" alt="" loading="lazy" referrerpolicy="no-referrer">
+                        </a>
+                    <?php else: ?>
+                        <a class="social-media-item" href="<?= \escape($threadUrl) ?>">
+                            <img src="<?= \escape($mediaUrl) ?>" alt="" loading="lazy" referrerpolicy="no-referrer">
+                        </a>
+                    <?php endif; ?>
+                <?php elseif ($mediaKind === 'video'):
+                    $embed = \SocialBored\Util::videoEmbed($mediaUrl);
+                    ?>
+                    <?php if ($embed !== null): ?>
+                        <div class="social-media-item social-media-video">
+                            <?php if ($embed['type'] === 'iframe'): ?>
+                                <iframe src="<?= \escape($embed['src']) ?>" loading="lazy"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                            <?php else: ?>
+                                <video src="<?= \escape($embed['src']) ?>" controls preload="metadata" playsinline></video>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
             <?php endforeach; ?>
         </div>

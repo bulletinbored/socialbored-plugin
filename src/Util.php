@@ -158,6 +158,122 @@ class Util
         return self::truncate((string)$line, 120);
     }
 
+    public static function safeHttpUrl(string $url): ?string
+    {
+        $url = trim($url);
+        if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+        $parts = parse_url($url);
+        $scheme = strtolower((string)($parts['scheme'] ?? ''));
+        if (!in_array($scheme, ['http', 'https'], true) || empty($parts['host'])) {
+            return null;
+        }
+        return $url;
+    }
+
+    /**
+     * @return array{type:string,src:string}|null
+     */
+    public static function videoEmbed(string $url): ?array
+    {
+        $url = self::safeHttpUrl($url);
+        if ($url === null) {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        $host = strtolower((string)($parts['host'] ?? ''));
+        $path = (string)($parts['path'] ?? '');
+        parse_str((string)($parts['query'] ?? ''), $query);
+
+        $youtubeHosts = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com'];
+        if (in_array($host, $youtubeHosts, true)) {
+            $id = '';
+            if ($host === 'youtu.be') {
+                $id = ltrim($path, '/');
+            } elseif (preg_match('#/shorts/([A-Za-z0-9_-]+)#', $path, $match)) {
+                $id = $match[1];
+            } elseif (preg_match('#/embed/([A-Za-z0-9_-]+)#', $path, $match)) {
+                $id = $match[1];
+            } elseif (isset($query['v'])) {
+                $id = (string)$query['v'];
+            }
+            if (preg_match('/^[A-Za-z0-9_-]{6,20}$/', $id)) {
+                return ['type' => 'iframe', 'src' => 'https://www.youtube-nocookie.com/embed/' . $id];
+            }
+        }
+
+        $vimeoHosts = ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'];
+        if (in_array($host, $vimeoHosts, true)) {
+            $id = '';
+            if (preg_match('#/video/(\d+)#', $path, $match)) {
+                $id = $match[1];
+            } elseif (preg_match('#^/(\d+)#', $path, $match)) {
+                $id = $match[1];
+            }
+            if (preg_match('/^\d{5,12}$/', $id)) {
+                return ['type' => 'iframe', 'src' => 'https://player.vimeo.com/video/' . $id];
+            }
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (in_array($extension, ['mp4', 'webm', 'ogv', 'ogg', 'mov'], true)) {
+            return ['type' => 'video', 'src' => $url];
+        }
+
+        return null;
+    }
+
+    /**
+     * Store a social upload in the private area so the core download handler
+     * can enforce thread/profile visibility.
+     *
+     * @return array{filename:string,original:string,mime:string,size:int}|string
+     */
+    public static function storeSocialImage(array $file, int $userId): array|string
+    {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return 'image_upload_error';
+        }
+        if ((int)($file['size'] ?? 0) > 5 * 1024 * 1024) {
+            return 'image_too_large';
+        }
+        $tmp = (string)($file['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            return 'image_upload_error';
+        }
+
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mime = (string)$finfo->file($tmp);
+        $extensions = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($extensions[$mime])) {
+            return 'image_type_invalid';
+        }
+
+        $dir = \dirname(__DIR__, 3) . '/uploads/private';
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            return 'image_upload_error';
+        }
+        $filename = 'social_' . $userId . '_' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
+        $path = $dir . '/' . $filename;
+        if (!move_uploaded_file($tmp, $path)) {
+            return 'image_upload_error';
+        }
+
+        return [
+            'filename' => $filename,
+            'original' => (string)($file['name'] ?? $filename),
+            'mime' => $mime,
+            'size' => (int)($file['size'] ?? (is_file($path) ? filesize($path) : 0)),
+        ];
+    }
+
     public static function flash(string $key): string
     {
         return Http::pullFlash($key);

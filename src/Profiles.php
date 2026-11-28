@@ -99,7 +99,7 @@ class Profiles
             ");
             $pinStmt->execute([(int)$profile['pinned_thread_id']]);
             $pinned = $pinStmt->fetch(\PDO::FETCH_ASSOC) ?: null;
-            if ($pinned !== null && !Privacy::canViewThread($pdo, $pinned, $viewerId)) {
+            if ($pinned !== null && !Privacy::canAccessThread($pdo, $pinned, $viewerId)) {
                 $pinned = null;
             } elseif ($pinned !== null) {
                 $pinned = Feed::attachState($pdo, [$pinned])[0] ?? $pinned;
@@ -317,7 +317,7 @@ class Profiles
         $perPage = max(1, min(50, $perPage));
         $offset = ($page - 1) * $perPage;
 
-        $visibility = Privacy::threadVisibilityCondition($viewerId, 'prv');
+        $visibility = Privacy::threadVisibilityCondition($viewerId, 'prv', 't', 'tu');
         $audience = Privacy::threadAudienceCondition($viewerId, 'pra');
         $where = [
             "p.user_id = :reply_author",
@@ -376,7 +376,7 @@ class Profiles
 
     public static function media(\PDO $pdo, int $userId, int $viewerId): array
     {
-        $visibility = Privacy::threadVisibilityCondition($viewerId, 'pmv');
+        $visibility = Privacy::threadVisibilityCondition($viewerId, 'pmv', 't', 'tu');
         $audience = Privacy::threadAudienceCondition($viewerId, 'pma');
         $where = [
             "up.user_id = :media_author",

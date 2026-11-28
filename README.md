@@ -10,19 +10,17 @@ available at all times.
 
 - bulletinbored core `>= 1.2.0` (core thread/profile visibility + visibility hooks)
 - PHP `>= 8.1`
-- **editbored** `>= 1.0.1` (composer / Markdown rendering)
-- **bellbored** `>= 1.0.1` (notification center)
-- **textmebored** `>= 1.0.1` (optional, direct messages)
+- **bellbored** `>= 1.0.1` (required notification center)
+- **textmebored** `>= 1.0.1` (required direct messages)
 
-`editbored` and `bellbored` are hard dependencies: enable them before enabling `socialbored`.
-`textmebored` is optional; when disabled the "send message" buttons are hidden. The plugin does
-not silently install dependencies; the admin installs and enables them from the plugin
-catalog first.
+`bellbored` and `textmebored` are hard dependencies: enable them before enabling
+`socialbored`. The plugin does not silently install dependencies; the admin installs and
+enables them from the plugin catalog first.
 
 ## Installation
 
-1. Install and enable **editbored**.
-2. Install and enable **bellbored**.
+1. Install and enable **bellbored**.
+2. Install and enable **textmebored**.
 3. Install `socialbored` from the plugin catalog (or upload the ZIP).
 4. Enable `socialbored`.
 5. Open **Admin → Social** and choose a mode:
@@ -36,12 +34,16 @@ The plugin creates its tables on the first request after enabling. No CLI step i
 ## What it adds
 
 - Social feed with **Following**, **Discover** and **Latest** tabs.
-- Composer with optional title, visibility (`public`, `followers`, `private`), Markdown and
-  editbored integration.
+- Composer with optional title, visibility (`public`, `followers`, `private`) and Markdown.
+- Composer media: upload an image (stored privately and served through `/download/{id}`),
+  paste an image URL, or paste a video URL (direct MP4/WebM/OGG, YouTube or Vimeo).
+  One media item per post.
+- Post detail page with inline media, a small lightbox for images and Facebook-style
+  minimal comments (the forum sidebar is not used in social mode).
 - Social profiles with cover image, display name, bio, location, website, privacy, stats,
   posts, replies, media, likes, reposts and bookmarks.
 - Follow/unfollow, block/unblock, mute/unmute.
-- Reactions (like), reposts, bookmarks, hashtags, mentions (through editbored/the core).
+- Reactions (like), reposts, bookmarks, hashtags, mentions (through the core).
 - Reports with a moderation queue at **Admin → Social → Reports**.
 - Notifications through bellbored (`follow`, `like`, `repost`).
 - Privacy-aware media downloads: the core `/download/{id}` handler now enforces thread and
@@ -71,11 +73,10 @@ posts** (threads without a category). Classic forum threads keep their own forum
 so a user with a private social profile can still write public forum threads. Profile privacy
 is combined with per-post visibility; the more restrictive rule wins.
 
-Note: editbored image uploads are written to the public `/uploads` directory by
-editbored itself. If you publish followers-only or private posts with images, keep
-that in mind, or use text-only posts for private content. Core attachments uploaded
-through `/download/{id}` are privacy-aware because the core handler now checks the
-thread and profile visibility.
+Note: images uploaded through the **social composer** are written to
+`uploads/private/` and served through `/download/{id}`, so the core visibility
+check applies. External image and video URLs are inherently public to anyone who
+has the URL.
 
 Other plugins that build their own content listings (sitemapbored, RSS/feed plugins,
 custom search or API endpoints) should use the core `fetch_threads()` (which applies

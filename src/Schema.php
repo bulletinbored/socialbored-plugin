@@ -12,7 +12,7 @@ namespace SocialBored;
 
 class Schema
 {
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     public static function ensure(\PDO $pdo): void
     {
@@ -132,6 +132,14 @@ class Schema
                 resolved_at DATETIME NULL,
                 resolved_by {$int} NULL
             ){$charset}",
+
+            "CREATE TABLE IF NOT EXISTS social_media (
+                id {$auto},
+                thread_id {$int} NOT NULL,
+                kind {$varchar(10)} NOT NULL DEFAULT 'image',
+                url {$varchar(1000)} NOT NULL,
+                created_at {$now}
+            ){$charset}",
         ];
 
         foreach ($tables as $sql) {
@@ -147,6 +155,83 @@ class Schema
         self::index($pdo, $mysql, 'social_bookmarks', 'idx_social_bookmarks_thread', 'thread_id');
         self::index($pdo, $mysql, 'social_thread_hashtags', 'idx_social_thread_hashtags_tag', 'hashtag_id');
         self::index($pdo, $mysql, 'social_reports', 'idx_social_reports_status', 'status, created_at');
+        self::index($pdo, $mysql, 'social_media', 'idx_social_media_thread', 'thread_id');
+        self::ensureReactionUniqueness($pdo, $mysql);
+    }
+
+    /**
+     * A reaction is one row per user/target; the kind may change but it may
+     * not coexist with another kind. Clean up legacy duplicates before adding
+     * the unique index.
+     */
+    private static function ensureReactionUniqueness(\PDO $pdo, bool $mysql): void
+    {
+        if (self::hasIndex($pdo, $mysql, 'social_reactions', 'uniq_social_reactions_user_target')) {
+            return;
+        }
+
+        try {
+            $groups = $pdo->query("
+                SELECT user_id, target_type, target_id
+                FROM social_reactions
+                GROUP BY user_id, target_type, target_id
+                HAVING COUNT(*) > 1
+            ")->fetchAll(\PDO::FETCH_ASSOC);
+
+            foreach ($groups as $group) {
+                $params = [
+                    (int)$group['user_id'],
+                    (string)$group['target_type'],
+                    (int)$group['target_id'],
+                ];
+                $keep = $pdo->prepare("
+                    SELECT kind FROM social_reactions
+                    WHERE user_id = ? AND target_type = ? AND target_id = ?
+                    ORDER BY CASE WHEN kind = 'like' THEN 0 ELSE 1 END, created_at DESC
+                    LIMIT 1
+                ");
+                $keep->execute($params);
+                $kind = (string)($keep->fetchColumn() ?: 'like');
+                $pdo->prepare("
+                    DELETE FROM social_reactions
+                    WHERE user_id = ? AND target_type = ? AND target_id = ? AND kind <> ?
+                ")->execute(array_merge($params, [$kind]));
+            }
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if ($mysql) {
+            try {
+                $pdo->exec("ALTER TABLE social_reactions ADD UNIQUE INDEX uniq_social_reactions_user_target (user_id, target_type, target_id)");
+            } catch (\Throwable $e) {
+            }
+            return;
+        }
+
+        try {
+            $pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS uniq_social_reactions_user_target ON social_reactions (user_id, target_type, target_id)");
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private static function hasIndex(\PDO $pdo, bool $mysql, string $table, string $name): bool
+    {
+        try {
+            if ($mysql) {
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) FROM information_schema.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?
+                ");
+                $stmt->execute([$table, $name]);
+                return (int)$stmt->fetchColumn() > 0;
+            }
+            $stmt = $pdo->prepare("PRAGMA index_list({$table})");
+            $stmt->execute();
+            return in_array($name, $stmt->fetchAll(\PDO::FETCH_COLUMN, 1), true);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public static function currentVersion(\PDO $pdo): int

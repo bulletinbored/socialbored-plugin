@@ -124,11 +124,10 @@ include $coreViews . '/header.php';
                         <?php endif; ?>
 
                         <?php if ($hasMessages): ?>
-                            <button type="button" class="btn btn-outline-soft btn-sm textmebored-send-msg-btn"
-                                    data-user-id="<?= (int)$profileUser['id'] ?>"
-                                    data-username="<?= \escape($username) ?>">
+                            <a class="btn btn-outline-soft btn-sm textmebored-send-msg-btn"
+                               href="<?= \escape(\SocialBored\Http::url('messages')) ?>?conversation=<?= (int)$profileUser['id'] ?>">
                                 <i class="fas fa-envelope"></i><?= \escape(\t('send_message')) ?>
-                            </button>
+                            </a>
                         <?php endif; ?>
                         <?php endif; ?>
 
@@ -340,17 +339,3 @@ include $coreViews . '/header.php';
     </div>
 </div>
 <?php \render_footer(); ?>
-<?php if ($hasMessages && $loggedIn && !$isSelf): ?>
-    <script nonce="<?= \htmlspecialchars(\csp_nonce(), ENT_QUOTES, 'UTF-8') ?>">
-        document.querySelectorAll('.textmebored-send-msg-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                if (window.textmebored && window.textmebored.openConversation) {
-                    window.textmebored.openConversation(
-                        parseInt(btn.getAttribute('data-user-id'), 10),
-                        btn.getAttribute('data-username')
-                    );
-                }
-            });
-        });
-    </script>
-<?php endif; ?>

@@ -37,9 +37,8 @@ $flags = [
 ];
 
 $dependencies = [
-    'editbored' => true,
     'bellbored' => true,
-    'textmebored' => false,
+    'textmebored' => true,
 ];
 
 include $coreViews . '/admin_header.php';

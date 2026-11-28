@@ -35,7 +35,7 @@ class Admin
                         $mode = 'forum';
                     }
                     $deps = self::dependencies($pm);
-                    if (($mode === 'social' || $mode === 'both') && (!$deps['editbored'] || !$deps['bellbored'])) {
+                    if (($mode === 'social' || $mode === 'both') && (empty($deps['bellbored']) || empty($deps['textmebored']))) {
                         $error = \pt('socialbored', 'deps_required');
                         $mode = 'forum';
                     } else {
@@ -217,7 +217,6 @@ class Admin
     public static function dependencies(\PluginManager $pm): array
     {
         return [
-            'editbored' => $pm->isEnabled('editbored'),
             'bellbored' => $pm->isEnabled('bellbored'),
             'textmebored' => $pm->isEnabled('textmebored'),
         ];
